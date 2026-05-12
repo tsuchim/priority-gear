@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using PriorityGear.App.Runtime;
 using PriorityGear.App.Storage;
 using PriorityGear.App.ViewModels;
+using PriorityGear.Contracts;
 using PriorityGear.Core;
 using PriorityGear.Windows;
 using Forms = System.Windows.Forms;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<RuleViewModel> _rules = [];
     private readonly ObservableCollection<string> _logs = [];
     private readonly RuleStore _ruleStore = new();
+    private readonly SystemModeClient _systemModeClient = new();
     private readonly MonitoringController _monitoringController;
     private readonly DispatcherTimer _timer = new();
     private Forms.NotifyIcon? _notifyIcon;
@@ -125,6 +127,19 @@ public partial class MainWindow : Window
     private void SaveRulesButton_Click(object sender, RoutedEventArgs e)
     {
         CommitRules("Rules saved.");
+    }
+
+    private async void RefreshServiceButton_Click(object sender, RoutedEventArgs e)
+    {
+        ServiceResponse response = await _systemModeClient.GetStatusAsync(TimeSpan.FromSeconds(2));
+        if (response.Succeeded && response.Status is not null)
+        {
+            SystemModeStatusText.Text = $"System Mode: running={response.Status.ServiceRunning}, account={response.Status.ServiceAccount}, SeDebug={response.Status.SeDebugPrivilege.Status}, auth={response.Status.AuthorizationMode}";
+        }
+        else
+        {
+            SystemModeStatusText.Text = $"System Mode: unavailable ({response.Message})";
+        }
     }
 
     private void RuleGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)

@@ -8,6 +8,7 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="2*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="1.8*" />
@@ -27,7 +28,14 @@
             <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextAlignment="Right" />
         </DockPanel>
 
-        <DataGrid x:Name="ProcessGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
+        <Border Grid.Row="1" BorderBrush="#CCCCCC" BorderThickness="1" Padding="8" Margin="0,0,0,8">
+            <DockPanel>
+                <Button x:Name="RefreshServiceButton" Content="System Mode status" Width="150" Margin="0,0,8,0" Click="RefreshServiceButton_Click" DockPanel.Dock="Left" />
+                <TextBlock x:Name="SystemModeStatusText" VerticalAlignment="Center" Text="System Mode: unknown. Mutating service commands are admin-only." />
+            </DockPanel>
+        </Border>
+
+        <DataGrid x:Name="ProcessGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="70" />
                 <DataGridTextColumn Header="Name" Binding="{Binding ExecutableName}" Width="150" />
@@ -43,9 +51,9 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="2" Text="Rules" FontWeight="SemiBold" Margin="0,12,0,6" />
+        <TextBlock Grid.Row="3" Text="Rules" FontWeight="SemiBold" Margin="0,12,0,6" />
 
-        <DataGrid x:Name="RuleGrid" Grid.Row="3" AutoGenerateColumns="False" SelectionMode="Single" CellEditEnding="RuleGrid_CellEditEnding" CurrentCellChanged="RuleGrid_CurrentCellChanged">
+        <DataGrid x:Name="RuleGrid" Grid.Row="4" AutoGenerateColumns="False" SelectionMode="Single" CellEditEnding="RuleGrid_CellEditEnding" CurrentCellChanged="RuleGrid_CurrentCellChanged">
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="75" />
                 <DataGridTextColumn Header="Name" Binding="{Binding DisplayName, UpdateSourceTrigger=LostFocus}" Width="160" />
@@ -59,8 +67,8 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="4" Text="Log" FontWeight="SemiBold" Margin="0,12,0,6" />
+        <TextBlock Grid.Row="5" Text="Log" FontWeight="SemiBold" Margin="0,12,0,6" />
 
-        <ListBox x:Name="LogList" Grid.Row="5" />
+        <ListBox x:Name="LogList" Grid.Row="6" />
     </Grid>
 </Window>
