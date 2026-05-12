@@ -9,6 +9,10 @@
 - Foreground detection.
 - Visible operation logs.
 - Tray presence.
+- Rule editing and deletion.
+- Visible apply status.
+- Duplicate failure throttling.
+- Manual test coverage.
 
 ## v0.2 System Mode Design and Prototype
 

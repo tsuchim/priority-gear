@@ -6,6 +6,8 @@ PriorityGear does not bypass Windows security boundaries.
 
 User Mode only controls processes that the current user can control through documented Windows APIs. When access is denied or a process is unsupported, PriorityGear records and displays the failure.
 
+Missing executable path is not treated as proof that priority cannot be changed. A process may still match by executable name and may still be controllable.
+
 ## System Mode
 
 System Mode is future work and requires administrator-approved Windows Service installation.
@@ -28,3 +30,5 @@ Failures are explicit:
 - Do not substitute another priority.
 - Do not silently retry aggressively.
 - Do not report success when the main operation failed.
+
+PriorityGear v0.1 has no telemetry, no network access, and no updater.

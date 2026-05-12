@@ -13,6 +13,9 @@ System Mode is future work. It will use a Windows Service for administrator-appr
 ## Projects
 
 - `PriorityGear.App`: WPF UI, tray integration, monitoring loop, user-session foreground polling.
+- `PriorityGear.App.Runtime`: monitoring controller, apply decisions, state tracking, and log throttling.
+- `PriorityGear.App.Storage`: per-user rule persistence with atomic JSON writes.
+- `PriorityGear.App.ViewModels`: process and rule presentation models for WPF.
 - `PriorityGear.Core`: rule model, matching, desired-priority calculation, runtime state, structured operation results.
 - `PriorityGear.Windows`: thin Windows API wrapper for processes, priorities, foreground window PID, and capability classification.
 - `PriorityGear.Service`: placeholder boundary for future System Mode.
@@ -20,6 +23,8 @@ System Mode is future work. It will use a Windows Service for administrator-appr
 ## Rule Engine
 
 The rule engine matches process snapshots against enabled rules. Initial matching supports executable name, full path, and path suffix. Command-line and service-name matching are reserved fields.
+
+Rules are evaluated in display order, which is creation order in v0.1. The first matching enabled `CurrentUser` rule wins. `Machine` and `ServiceProcess` scopes are reserved and ignored in User Mode.
 
 ## Active Priority Engine
 
@@ -43,6 +48,8 @@ v0.1 applies changes only to controllable current-user processes.
 ## Logging
 
 Runtime operations produce structured results with status, error details, and timestamps. The UI shows failures rather than treating them as success.
+
+Repeated identical apply failures are throttled by process id, rule id, desired priority, and failure category.
 
 ## Future IPC Boundary
 
