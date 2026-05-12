@@ -20,6 +20,43 @@ PriorityGear v0.1 is a usable User Mode application for normal Windows users. It
 
 Rules are evaluated in creation order. The first matching enabled `CurrentUser` rule wins.
 
+Closing the main window exits the app. Use the tray menu while the app is running for Open, Start monitoring, Stop monitoring, and Exit.
+
+Rules are stored at `%LocalAppData%\PriorityGear\rules.json`.
+
+## Build and Run
+
+```powershell
+dotnet restore PriorityGear.slnx
+dotnet build PriorityGear.slnx --configuration Release --no-restore
+dotnet test PriorityGear.slnx --configuration Release --no-build
+dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
+```
+
+## Portable Publish
+
+Framework-dependent:
+
+```powershell
+dotnet publish src/PriorityGear.App/PriorityGear.App.csproj `
+  --configuration Release `
+  --runtime win-x64 `
+  --self-contained false `
+  --output artifacts/publish/PriorityGear-v0.1-win-x64-framework-dependent
+```
+
+Self-contained single-file:
+
+```powershell
+dotnet publish src/PriorityGear.App/PriorityGear.App.csproj `
+  --configuration Release `
+  --runtime win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:EnableCompressionInSingleFile=true `
+  --output artifacts/publish/PriorityGear-v0.1-win-x64-self-contained
+```
+
 ## Non-Goals for v0.1
 
 PriorityGear v0.1 does not include:

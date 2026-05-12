@@ -24,6 +24,7 @@
 
 ## Later
 
+- v0.1 GitHub Release draft after manual test results are recorded.
 - Installer.
 - Code signing.
 - winget manifest.

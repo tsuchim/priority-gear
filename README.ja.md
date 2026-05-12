@@ -21,4 +21,15 @@ Windows Service、インストーラー、署名、Microsoft Store 配布、wing
 
 User Mode は管理者権限を要求せず、現在のユーザーが制御できるプロセスだけを対象にします。System Mode は将来のマイルストーンで、管理者承認を前提に設計します。
 
+ルールは `%LocalAppData%\PriorityGear\rules.json` に保存されます。メインウィンドウを閉じるとアプリは終了します。
+
+## ビルドと実行
+
+```powershell
+dotnet restore PriorityGear.slnx
+dotnet build PriorityGear.slnx --configuration Release --no-restore
+dotnet test PriorityGear.slnx --configuration Release --no-build
+dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
+```
+
 ライセンスは MIT です。

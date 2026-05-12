@@ -1,6 +1,6 @@
 # Release Notes v0.1
 
-PriorityGear v0.1 is the first User Mode release candidate.
+PriorityGear v0.1 is the first User Mode release-candidate target. The local Notepad manual verification is recorded in `docs/manual-test-results-v0.1.md`.
 
 ## Added
 

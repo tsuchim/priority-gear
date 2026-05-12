@@ -40,3 +40,5 @@ This manual test verifies PriorityGear User Mode behavior. It must not require a
 ## Expected Result
 
 The app remains usable without elevation, applies priority only when needed, returns active processes to base priority when they lose foreground, and reports denied or unsupported operations explicitly.
+
+Closing the main window exits the app in v0.1.

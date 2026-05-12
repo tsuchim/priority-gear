@@ -49,6 +49,24 @@ public sealed class RuleStoreTests
         Assert.False(File.Exists(path + ".tmp"));
     }
 
+    [Fact]
+    public void DeletedRuleIsRemovedFromPersistence()
+    {
+        string path = TempPath();
+        RuleStore store = new(path);
+        PriorityRule keep = PriorityRule.ForExecutable("keep.exe");
+        PriorityRule delete = PriorityRule.ForExecutable("delete.exe");
+        Assert.True(store.Save([keep, delete]).Succeeded);
+
+        RuleStoreSaveResult save = store.Save([keep]);
+        RuleStoreLoadResult load = store.Load();
+
+        Assert.True(save.Succeeded);
+        Assert.True(load.Succeeded);
+        Assert.Single(load.Rules);
+        Assert.Equal(keep.Id, load.Rules.Single().Id);
+    }
+
     private static string TempPath()
     {
         string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Tests", Guid.NewGuid().ToString("N"));
