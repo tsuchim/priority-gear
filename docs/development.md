@@ -19,6 +19,8 @@ dotnet build --configuration Release --no-restore
 dotnet test --configuration Release --no-build
 ```
 
+The primary target architecture is x64.
+
 ## Branches
 
 - `main`: stable.

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PriorityGear.App/PriorityGear.App.csproj" />
+    <Project Path="src/PriorityGear.Core/PriorityGear.Core.csproj" />
+    <Project Path="src/PriorityGear.Service/PriorityGear.Service.csproj" />
+    <Project Path="src/PriorityGear.Windows/PriorityGear.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PriorityGear.Core.Tests/PriorityGear.Core.Tests.csproj" />
+    <Project Path="tests/PriorityGear.Windows.Tests/PriorityGear.Windows.Tests.csproj" />
+  </Folder>
+</Solution>
