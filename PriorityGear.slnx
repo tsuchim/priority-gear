@@ -6,6 +6,7 @@
     <Project Path="src/PriorityGear.Windows/PriorityGear.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PriorityGear.App.Tests/PriorityGear.App.Tests.csproj" />
     <Project Path="tests/PriorityGear.Core.Tests/PriorityGear.Core.Tests.csproj" />
     <Project Path="tests/PriorityGear.Windows.Tests/PriorityGear.Windows.Tests.csproj" />
   </Folder>

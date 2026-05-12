@@ -4,11 +4,13 @@ public sealed class ManagedProcessState
 {
     public required int ProcessId { get; init; }
 
-    public required string ExecutablePath { get; init; }
+    public string? ExecutablePath { get; init; }
 
     public required Guid RuleId { get; init; }
 
     public ProcessPriorityLevel CurrentDesiredPriority { get; set; }
+
+    public ProcessPriorityLevel? LastAttemptedPriority { get; set; }
 
     public ProcessPriorityLevel? LastAppliedPriority { get; set; }
 

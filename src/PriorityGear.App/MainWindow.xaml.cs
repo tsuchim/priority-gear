@@ -2,6 +2,9 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using PriorityGear.App.Runtime;
+using PriorityGear.App.Storage;
+using PriorityGear.App.ViewModels;
 using PriorityGear.Core;
 using PriorityGear.Windows;
 using Forms = System.Windows.Forms;
@@ -10,23 +13,25 @@ namespace PriorityGear.App;
 
 public partial class MainWindow : Window
 {
-    private readonly ObservableCollection<ProcessSnapshot> _processes = [];
-    private readonly ObservableCollection<PriorityRule> _rules = [];
+    private readonly ObservableCollection<ProcessRowViewModel> _processes = [];
+    private readonly ObservableCollection<RuleViewModel> _rules = [];
     private readonly ObservableCollection<string> _logs = [];
-    private readonly Dictionary<int, ManagedProcessState> _states = [];
-    private readonly ProcessPriorityService _processPriorityService = new();
-    private readonly ForegroundWindowProvider _foregroundWindowProvider = new();
-    private readonly PriorityRuleEngine _ruleEngine = new();
     private readonly RuleStore _ruleStore = new();
-    private readonly DispatcherTimer _foregroundTimer = new();
-    private readonly DispatcherTimer _rescanTimer = new();
-    private readonly DispatcherTimer _reapplyTimer = new();
+    private readonly MonitoringController _monitoringController;
+    private readonly DispatcherTimer _timer = new();
     private Forms.NotifyIcon? _notifyIcon;
-    private bool _monitoring;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        ProcessPriorityService processPriorityService = new();
+        _monitoringController = new MonitoringController(
+            new WindowsProcessSource(processPriorityService),
+            new WindowsPriorityApplier(processPriorityService),
+            new WindowsForegroundProcessSource(new ForegroundWindowProvider()));
+        _monitoringController.LogProduced += (_, entry) => Log(entry.ToString());
+
         ProcessGrid.ItemsSource = _processes;
         RuleGrid.ItemsSource = _rules;
         LogList.ItemsSource = _logs;
@@ -36,15 +41,10 @@ public partial class MainWindow : Window
             column.ItemsSource = Enum.GetValues<ProcessPriorityLevel>();
         }
 
-        foreach (PriorityRule rule in _ruleStore.Load())
-        {
-            _rules.Add(rule);
-        }
-
-        ConfigureTimers();
+        LoadRules();
+        ConfigureTimer();
         ConfigureTray();
-        RefreshProcesses();
-        SetStatus("Stopped");
+        RefreshSnapshot(_monitoringController.Refresh(DateTimeOffset.Now));
     }
 
     protected override void OnClosed(EventArgs e)
@@ -53,16 +53,10 @@ public partial class MainWindow : Window
         base.OnClosed(e);
     }
 
-    private void ConfigureTimers()
+    private void ConfigureTimer()
     {
-        _foregroundTimer.Interval = TimeSpan.FromMilliseconds(500);
-        _foregroundTimer.Tick += (_, _) => ApplyRules();
-
-        _rescanTimer.Interval = TimeSpan.FromSeconds(10);
-        _rescanTimer.Tick += (_, _) => RefreshProcesses();
-
-        _reapplyTimer.Interval = TimeSpan.FromSeconds(30);
-        _reapplyTimer.Tick += (_, _) => ApplyRules(forceRecheck: true);
+        _timer.Interval = MonitoringOptions.Default.ForegroundPollingInterval;
+        _timer.Tick += (_, _) => RefreshSnapshot(_monitoringController.Tick(DateTimeOffset.Now));
     }
 
     private void ConfigureTray()
@@ -75,8 +69,10 @@ public partial class MainWindow : Window
             ContextMenuStrip = new Forms.ContextMenuStrip()
         };
         _notifyIcon.ContextMenuStrip.Items.Add("Open", null, (_, _) => ShowFromTray());
-        _notifyIcon.ContextMenuStrip.Items.Add("Exit", null, (_, _) => Close());
-        _notifyIcon.DoubleClick += (_, _) => ShowFromTray();
+        _notifyIcon.ContextMenuStrip.Items.Add("Start monitoring", null, (_, _) => Dispatcher.Invoke(StartMonitoring));
+        _notifyIcon.ContextMenuStrip.Items.Add("Stop monitoring", null, (_, _) => Dispatcher.Invoke(StopMonitoring));
+        _notifyIcon.ContextMenuStrip.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(Close));
+        _notifyIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowFromTray);
     }
 
     private void ShowFromTray()
@@ -88,124 +84,127 @@ public partial class MainWindow : Window
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
-        RefreshProcesses();
+        RefreshSnapshot(_monitoringController.Refresh(DateTimeOffset.Now));
     }
 
     private void StartButton_Click(object sender, RoutedEventArgs e)
     {
-        _monitoring = true;
-        _foregroundTimer.Start();
-        _rescanTimer.Start();
-        _reapplyTimer.Start();
-        Log("Monitoring started.");
-        ApplyRules(forceRecheck: true);
-        SetStatus("Running");
+        StartMonitoring();
     }
 
     private void StopButton_Click(object sender, RoutedEventArgs e)
     {
-        _monitoring = false;
-        _foregroundTimer.Stop();
-        _rescanTimer.Stop();
-        _reapplyTimer.Stop();
-        Log("Monitoring stopped.");
-        SetStatus("Stopped");
+        StopMonitoring();
     }
 
     private void AddRuleButton_Click(object sender, RoutedEventArgs e)
     {
-        if (ProcessGrid.SelectedItem is not ProcessSnapshot process)
+        if (ProcessGrid.SelectedItem is not ProcessRowViewModel selected)
         {
             Log("Select a process before adding a rule.");
             return;
         }
 
-        PriorityRule rule = PriorityRule.ForExecutable(process.ExecutableName, process.ExecutablePath);
-        _rules.Add(rule);
-        SaveRules();
-        Log($"Added rule for {process.ExecutableName}.");
+        PriorityRule rule = PriorityRule.ForExecutable(selected.ExecutableName, selected.Process.ExecutablePath);
+        _rules.Add(new RuleViewModel(rule));
+        CommitRules("Rule added.");
+    }
+
+    private void DeleteRuleButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (RuleGrid.SelectedItem is not RuleViewModel selected)
+        {
+            Log("Select a rule before deleting.");
+            return;
+        }
+
+        _rules.Remove(selected);
+        CommitRules("Rule deleted.");
+    }
+
+    private void SaveRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        CommitRules("Rules saved.");
     }
 
     private void RuleGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
     {
-        Dispatcher.BeginInvoke(SaveRules);
+        Dispatcher.BeginInvoke(() => CommitRules("Rule edited."));
     }
 
-    private void RefreshProcesses()
+    private void RuleGrid_CurrentCellChanged(object sender, EventArgs e)
     {
-        IReadOnlyList<ProcessSnapshot> snapshots = _processPriorityService.GetProcesses();
+        Dispatcher.BeginInvoke(() => CommitRules("Rule edited."));
+    }
+
+    private void StartMonitoring()
+    {
+        _timer.Start();
+        RefreshSnapshot(_monitoringController.Start(DateTimeOffset.Now));
+    }
+
+    private void StopMonitoring()
+    {
+        _timer.Stop();
+        RefreshSnapshot(_monitoringController.Stop(DateTimeOffset.Now));
+    }
+
+    private void LoadRules()
+    {
+        RuleStoreLoadResult result = _ruleStore.Load();
+        if (!result.Succeeded)
+        {
+            Log($"Rule load failed: {result.ErrorMessage}. File was not overwritten: {result.Path}");
+            return;
+        }
+
+        foreach (PriorityRule rule in result.Rules)
+        {
+            _rules.Add(new RuleViewModel(rule));
+        }
+
+        Log($"Rules loaded from {result.Path}.");
+        UpdateControllerRules();
+    }
+
+    private void CommitRules(string successMessage)
+    {
+        UpdateControllerRules();
+        RuleStoreSaveResult result = _ruleStore.Save(_rules.Select(static r => r.Rule));
+        if (result.Succeeded)
+        {
+            Log(successMessage);
+        }
+        else
+        {
+            Log($"Rule save failed: {result.ErrorMessage}");
+        }
+
+        RefreshSnapshot(_monitoringController.Refresh(DateTimeOffset.Now));
+    }
+
+    private void UpdateControllerRules()
+    {
+        _monitoringController.SetRules(_rules.Select(static r => r.Rule).ToList());
+    }
+
+    private void RefreshSnapshot(MonitoringSnapshot snapshot)
+    {
         _processes.Clear();
-        foreach (ProcessSnapshot snapshot in snapshots)
+        foreach (ProcessSnapshot process in snapshot.Processes.OrderBy(static p => p.ExecutableName).ThenBy(static p => p.ProcessId))
         {
-            _processes.Add(snapshot);
+            _processes.Add(ProcessRowViewModel.From(process, snapshot));
         }
 
-        SetStatus(_monitoring ? $"Running - {snapshots.Count} processes" : $"Stopped - {snapshots.Count} processes");
-    }
-
-    private void ApplyRules(bool forceRecheck = false)
-    {
-        int? foregroundProcessId = _foregroundWindowProvider.GetForegroundProcessId();
-
-        foreach (ProcessSnapshot process in _processes)
-        {
-            PriorityDecision? decision = _ruleEngine.Decide(process, _rules, foregroundProcessId);
-            if (decision is null)
-            {
-                continue;
-            }
-
-            if (process.Capability != ProcessCapability.ControllableNow)
-            {
-                Log($"{process.ExecutableName} ({process.ProcessId}) is not controllable: {process.Capability}.");
-                continue;
-            }
-
-            _states.TryGetValue(process.ProcessId, out ManagedProcessState? state);
-            if (!forceRecheck && !decision.ShouldApply(state))
-            {
-                continue;
-            }
-
-            PriorityApplyResult result = _processPriorityService.SetPriority(process.ProcessId, decision.DesiredPriority);
-            ManagedProcessState nextState = state ?? new ManagedProcessState
-            {
-                ProcessId = process.ProcessId,
-                ExecutablePath = process.ExecutablePath,
-                RuleId = decision.Rule.Id
-            };
-
-            nextState.CurrentDesiredPriority = decision.DesiredPriority;
-            nextState.IsForegroundActive = decision.IsForegroundActive;
-            nextState.LastApplyResult = result;
-            nextState.LastApplyTime = DateTimeOffset.Now;
-            nextState.LastError = result.Succeeded ? null : result.Message;
-            if (result.Succeeded)
-            {
-                nextState.LastAppliedPriority = decision.DesiredPriority;
-            }
-
-            _states[process.ProcessId] = nextState;
-            Log(result.Succeeded
-                ? $"{process.ExecutableName} ({process.ProcessId}) -> {decision.DesiredPriority}"
-                : $"{process.ExecutableName} ({process.ProcessId}) failed: {result.Message}");
-        }
-    }
-
-    private void SaveRules()
-    {
-        _ruleStore.Save(_rules);
-    }
-
-    private void SetStatus(string status)
-    {
-        StatusText.Text = status;
+        StatusText.Text = snapshot.IsRunning
+            ? $"Monitoring running - {_processes.Count} processes - {_rules.Count} rules"
+            : $"Monitoring stopped - {_processes.Count} processes - {_rules.Count} rules";
     }
 
     private void Log(string message)
     {
         _logs.Insert(0, $"{DateTimeOffset.Now:HH:mm:ss} {message}");
-        while (_logs.Count > 200)
+        while (_logs.Count > 300)
         {
             _logs.RemoveAt(_logs.Count - 1);
         }

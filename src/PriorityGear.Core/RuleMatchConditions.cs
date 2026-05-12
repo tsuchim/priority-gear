@@ -27,7 +27,8 @@ public sealed class RuleMatchConditions
         }
 
         if (!string.IsNullOrWhiteSpace(PathSuffix) &&
-            !process.ExecutablePath.EndsWith(PathSuffix, StringComparison.OrdinalIgnoreCase))
+            (process.ExecutablePath is null ||
+             !process.ExecutablePath.EndsWith(PathSuffix, StringComparison.OrdinalIgnoreCase)))
         {
             return false;
         }
