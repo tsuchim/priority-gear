@@ -11,12 +11,18 @@ v0.1 supports:
 - Process list display.
 - Per-user rules stored as plain JSON.
 - Matching by executable name and full path.
+- Matching by optional path suffix.
 - Base priority.
 - Active priority when the matched process owns the foreground window.
 - Foreground process detection inside the user session.
 - Priority application only when the desired priority differs from the last applied priority.
 - Periodic process rescan.
 - Visible status and logs.
+- Rule editing and deletion from the GUI.
+- Malformed rule JSON reporting without silent overwrite.
+- Throttled duplicate failure logs.
+
+Rule precedence is creation order. Disabled rules and unsupported scopes are ignored. The first matching enabled `CurrentUser` rule wins.
 
 v0.1 explicitly excludes:
 

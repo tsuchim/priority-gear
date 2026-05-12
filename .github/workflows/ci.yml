@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - devel
+  pull_request:
+    branches:
+      - main
+      - devel
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore PriorityGear.slnx
+
+      - name: Build
+        run: dotnet build PriorityGear.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test PriorityGear.slnx --configuration Release --no-build
+
+      - name: Publish framework-dependent
+        if: github.event_name == 'workflow_dispatch'
+        run: >
+          dotnet publish src/PriorityGear.App/PriorityGear.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained false
+          --output artifacts/publish/PriorityGear-v0.1.0-win-x64-framework-dependent
+
+      - name: Publish self-contained single-file
+        if: github.event_name == 'workflow_dispatch'
+        run: >
+          dotnet publish src/PriorityGear.App/PriorityGear.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:EnableCompressionInSingleFile=true
+          --output artifacts/publish/PriorityGear-v0.1.0-win-x64-self-contained
+
+      - name: Zip framework-dependent
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/publish/PriorityGear-v0.1.0-win-x64-framework-dependent/* -DestinationPath artifacts/PriorityGear-v0.1.0-win-x64-framework-dependent.zip -Force
+
+      - name: Zip self-contained
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/publish/PriorityGear-v0.1.0-win-x64-self-contained/* -DestinationPath artifacts/PriorityGear-v0.1.0-win-x64-self-contained.zip -Force
+
+      - name: Upload framework-dependent artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PriorityGear-v0.1.0-win-x64-framework-dependent
+          path: artifacts/PriorityGear-v0.1.0-win-x64-framework-dependent.zip
+
+      - name: Upload self-contained artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PriorityGear-v0.1.0-win-x64-self-contained
+          path: artifacts/PriorityGear-v0.1.0-win-x64-self-contained.zip

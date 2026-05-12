@@ -9,6 +9,10 @@
 - Foreground detection.
 - Visible operation logs.
 - Tray presence.
+- Rule editing and deletion.
+- Visible apply status.
+- Duplicate failure throttling.
+- Manual test coverage.
 
 ## v0.2 System Mode Design and Prototype
 
@@ -20,6 +24,7 @@
 
 ## Later
 
+- v0.1 GitHub Release draft after manual test results are recorded.
 - Installer.
 - Code signing.
 - winget manifest.
