@@ -39,10 +39,25 @@ Initial operations:
 - `GetMachineRules`
 - `TestApplyPriority`
 - `ApplyApprovedMachineRule`
+- `ProbePriorityAccess`
 
 Normal users may request read-only status. Mutating commands require an administrator caller and, for `ApplyApprovedMachineRule`, an enabled administrator-approved machine rule that matches the target process.
 
 If caller identity cannot be verified, mutation is denied and reported.
+
+`ProbePriorityAccess` checks whether the service can open a process with priority-write access without calling `SetPriorityClass`. It is used for denied/protected classification without mutating critical targets.
+
+## Verification Setup
+
+The v0.2 foundation includes a local verification setup artifact, not a production installer. It is built with:
+
+```powershell
+.\scripts\build-verification-installer.ps1
+```
+
+The setup executable requests elevation, installs payload files under `%ProgramFiles%\PriorityGear`, registers `PriorityGear.Service` as LocalSystem, starts the service, checks status/admin pipes, launches `PriorityGear.TestTarget` without stealing foreground focus, applies and restores priority through the service path, validates temporary machine rules, and writes a detailed log under `%ProgramData%\PriorityGear\Logs`.
+
+This artifact is for local verification only and is not published to GitHub Releases.
 
 ## Win32 Priority API
 

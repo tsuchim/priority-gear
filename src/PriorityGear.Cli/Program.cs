@@ -37,6 +37,14 @@ switch (args[1].ToLowerInvariant())
         };
         pipeName = ServiceContractConstants.AdminPipeName;
         break;
+    case "probe":
+        request = new ServiceRequest
+        {
+            Kind = ServiceCommandKind.ProbePriorityAccess,
+            ProcessId = ReadIntOption(args, "--pid")
+        };
+        pipeName = ServiceContractConstants.AdminPipeName;
+        break;
     default:
         PrintUsage();
         return 2;
@@ -106,6 +114,7 @@ static void PrintUsage()
     Console.Error.WriteLine("  PriorityGear.Cli service test-apply --pid <pid> --priority BelowNormal");
     Console.Error.WriteLine("  PriorityGear.Cli service apply-rule --rule-id <guid> --pid <pid>");
     Console.Error.WriteLine("  PriorityGear.Cli service apply-rule --rule-id <guid> --pid <pid> --priority BelowNormal");
+    Console.Error.WriteLine("  PriorityGear.Cli service probe --pid <pid>");
 }
 
 static ProcessPriorityLevel? TryReadPriorityOption(string[] args, string name)

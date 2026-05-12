@@ -13,6 +13,9 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - `SeDebugPrivilege` enable attempt and visible privilege status.
 - Developer/admin service install scripts.
 - Developer CLI diagnostics for service status and admin-pipe test commands.
+- Local verification setup artifact that performs the elevated service install and System Mode checks after UAC approval.
+- `PriorityGear.TestTarget`, a harmless non-foreground test process for service-path priority mutation.
+- No-mutation priority access probe for denied/protected classification.
 
 ## Not Planned for v0.2
 

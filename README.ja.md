@@ -41,4 +41,22 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
+## v0.2 System Mode 検証
+
+System Mode は `devel` で開発中です。検証用 setup は本番インストーラーではなく、GitHub Releases には公開しません。
+
+作成:
+
+```powershell
+.\scripts\build-verification-installer.ps1
+```
+
+次をダブルクリックして UAC を承認します。
+
+```text
+artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.VerificationSetup.exe
+```
+
+setup は `%ProgramFiles%\PriorityGear` に検証用 payload を配置し、LocalSystem service を登録・起動し、status pipe / 管理者 mutation pipe、`PriorityGear.TestTarget` の優先度変更と復元、temporary machine rule の検証を行います。ログは `%ProgramData%\PriorityGear\Logs` に出力されます。
+
 ライセンスは MIT です。

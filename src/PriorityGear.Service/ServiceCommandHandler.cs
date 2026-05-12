@@ -43,6 +43,7 @@ public sealed class ServiceCommandHandler(
             ServiceCommandKind.GetMachineRules => RulesResponse(),
             ServiceCommandKind.TestApplyPriority => ApplyPriorityResponse(request, requireApprovedRule: false),
             ServiceCommandKind.ApplyApprovedMachineRule => ApplyPriorityResponse(request, requireApprovedRule: true),
+            ServiceCommandKind.ProbePriorityAccess => ProbePriorityAccessResponse(request),
             _ => new ServiceResponse { Succeeded = false, Message = "Unsupported command." }
         };
 
@@ -108,6 +109,28 @@ public sealed class ServiceCommandHandler(
         }
 
         Win32PriorityResult result = priorityApplier.SetPriority(request.ProcessId.Value, priority.Value);
+        return new ServiceResponse
+        {
+            Succeeded = result.Succeeded,
+            Message = result.Message,
+            PriorityApply = new PriorityApplyDto
+            {
+                Succeeded = result.Succeeded,
+                Status = result.Status.ToString(),
+                Win32Error = result.Win32Error,
+                Message = result.Message
+            }
+        };
+    }
+
+    private ServiceResponse ProbePriorityAccessResponse(ServiceRequest request)
+    {
+        if (request.ProcessId is null)
+        {
+            return new ServiceResponse { Succeeded = false, Message = "ProcessId is required." };
+        }
+
+        Win32PriorityResult result = priorityApplier.ProbeSetPriorityAccess(request.ProcessId.Value);
         return new ServiceResponse
         {
             Succeeded = result.Succeeded,

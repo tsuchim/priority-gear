@@ -25,6 +25,8 @@ System Mode service execution may use LocalSystem. LocalSystem has strong local 
 - Protected processes are reported as unsupported.
 - Realtime priority remains hidden unless explicitly designed later.
 
+The v0.2 verification setup is a local administrator tool for validating this boundary. It requests UAC, installs the service as LocalSystem under `%ProgramFiles%\PriorityGear`, uses a harmless `PriorityGear.TestTarget` process for mutation verification, and uses a no-mutation probe for denied/protected classification.
+
 ## Protected Processes
 
 Protected processes are not targets. PriorityGear must report protected or unsupported cases explicitly.

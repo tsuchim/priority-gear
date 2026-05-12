@@ -33,6 +33,19 @@ public sealed class Win32PriorityApplier
         }
     }
 
+    public Win32PriorityResult ProbeSetPriorityAccess(int processId)
+    {
+        nint handle = NativeMethods.OpenProcess(ProcessSetInformation, false, (uint)processId);
+        if (handle == 0)
+        {
+            int error = Marshal.GetLastWin32Error();
+            return Failure(ProcessPriorityLevel.Normal, error);
+        }
+
+        _ = NativeMethods.CloseHandle(handle);
+        return new Win32PriorityResult(true, Win32PriorityStatus.Success, ProcessPriorityLevel.Normal, null, "Priority write access is available.");
+    }
+
     private static Win32PriorityResult Failure(ProcessPriorityLevel priority, int error)
     {
         return new Win32PriorityResult(false, Win32ErrorMapper.Map(error), priority, error, new Win32Exception(error).Message);

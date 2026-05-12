@@ -13,7 +13,8 @@ public enum ServiceCommandKind
     GetServiceStatus,
     GetMachineRules,
     TestApplyPriority,
-    ApplyApprovedMachineRule
+    ApplyApprovedMachineRule,
+    ProbePriorityAccess
 }
 
 public sealed class ServiceRequest

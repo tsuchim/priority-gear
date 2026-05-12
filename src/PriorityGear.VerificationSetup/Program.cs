@@ -1,0 +1,473 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Security.Principal;
+using System.ServiceProcess;
+using System.Text.Json;
+using System.Windows.Forms;
+using PriorityGear.Contracts;
+using PriorityGear.Core;
+
+namespace PriorityGear.VerificationSetup;
+
+internal static class Program
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
+    [STAThread]
+    private static void Main(string[] args)
+    {
+        ApplicationConfiguration.Initialize();
+        using VerificationForm form = new(args);
+        Application.Run(form);
+        Environment.ExitCode = form.ExitCode;
+    }
+
+    private sealed class VerificationForm : Form
+    {
+        private readonly string[] _args;
+        private readonly TextBox _logBox = new()
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Both
+        };
+
+        public VerificationForm(string[] args)
+        {
+            _args = args;
+            Text = "PriorityGear System Mode Verification";
+            Width = 900;
+            Height = 650;
+            Controls.Add(_logBox);
+            Shown += async (_, _) => await RunAsync();
+        }
+
+        public int ExitCode { get; private set; } = 1;
+
+        private async Task RunAsync()
+        {
+            VerificationInstallPlan plan = VerificationInstallPlan.CreateDefault();
+            string logPath = Path.Combine(
+                plan.LogDirectory,
+                $"system-mode-verification-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            VerificationLog log = new(logPath);
+
+            try
+            {
+                if (_args.Any(arg => string.Equals(arg, "--uninstall", StringComparison.OrdinalIgnoreCase)))
+                {
+                    await UninstallAsync(plan, log);
+                    ExitCode = 0;
+                    Finish("PriorityGear System Mode verification uninstall: PASSED", log);
+                    return;
+                }
+
+                await VerifyAsync(plan, log);
+                ExitCode = 0;
+                Finish("PriorityGear System Mode verification: PASSED", log);
+            }
+            catch (Exception ex)
+            {
+                log.Fail(ex.ToString());
+                ExitCode = 1;
+                Finish($"PriorityGear System Mode verification: FAILED\r\nReason: {ex.Message}", log);
+            }
+        }
+
+        private async Task VerifyAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Environment");
+            log.Info($"Version: v0.2 verification setup");
+            log.Info($"Windows: {Environment.OSVersion.VersionString}");
+            log.Info($"User: {WindowsIdentity.GetCurrent().Name}");
+            log.Info($"Elevated: {IsElevated()}");
+            log.Info($"Install directory: {plan.InstallDirectory}");
+            log.Info($"Service name: {plan.ServiceName}");
+            if (!IsElevated())
+            {
+                throw new InvalidOperationException("Administrator rights are required. Re-run by double-clicking the setup and approving UAC.");
+            }
+
+            string setupDirectory = AppContext.BaseDirectory;
+            string payloadDirectory = VerificationPayload.PayloadDirectory(setupDirectory);
+            IReadOnlyList<string> missingFiles = VerificationPayload.MissingFiles(payloadDirectory);
+            if (missingFiles.Count > 0)
+            {
+                throw new FileNotFoundException($"Payload is incomplete: {string.Join(", ", missingFiles)}");
+            }
+
+            InstallPayload(payloadDirectory, plan, log);
+            await InstallOrUpdateServiceAsync(plan, log);
+            await StartServiceAsync(plan, log);
+            VerifyServiceConfiguration(plan, log);
+
+            ServiceResponse status = await SendStatusAsync(log);
+            if (!status.Succeeded)
+            {
+                throw new InvalidOperationException($"Status pipe failed: {status.Message}");
+            }
+
+            await VerifyPriorityMutationAsync(plan, log);
+            await VerifyMachineRulesAsync(plan, log);
+            await VerifyProbeAsync(log);
+
+            log.Section("Final verdict");
+            log.Info("Final verdict: passed");
+        }
+
+        private async Task UninstallAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Uninstall");
+            if (!IsElevated())
+            {
+                throw new InvalidOperationException("Administrator rights are required for uninstall.");
+            }
+
+            if (ServiceExists(plan.ServiceName))
+            {
+                await StopServiceAsync(plan, log);
+                RunProcess("sc.exe", $"delete \"{plan.ServiceName}\"", log);
+            }
+
+            log.Info("Uninstall completed.");
+        }
+
+        private static void InstallPayload(string payloadDirectory, VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Install files");
+            Directory.CreateDirectory(plan.InstallDirectory);
+            foreach (string source in Directory.EnumerateFiles(payloadDirectory, "*", SearchOption.AllDirectories))
+            {
+                string relative = Path.GetRelativePath(payloadDirectory, source);
+                string destination = Path.Combine(plan.InstallDirectory, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(source, destination, overwrite: true);
+            }
+
+            foreach (string requiredFile in VerificationPayload.RequiredFiles)
+            {
+                string installedFile = Path.Combine(plan.InstallDirectory, requiredFile);
+                if (!File.Exists(installedFile))
+                {
+                    throw new FileNotFoundException($"Required installed file is missing: {installedFile}");
+                }
+            }
+
+            log.Info($"Payload installed to {plan.InstallDirectory}");
+        }
+
+        private static async Task InstallOrUpdateServiceAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Install/update service");
+            if (ServiceExists(plan.ServiceName))
+            {
+                await StopServiceAsync(plan, log);
+                RunProcess("sc.exe", $"config \"{plan.ServiceName}\" binPath= \"{plan.ServiceExePath}\" obj= LocalSystem start= demand DisplayName= \"{plan.DisplayName}\"", log);
+            }
+            else
+            {
+                RunProcess("sc.exe", $"create \"{plan.ServiceName}\" binPath= \"{plan.ServiceExePath}\" obj= LocalSystem start= demand DisplayName= \"{plan.DisplayName}\"", log);
+            }
+
+            log.Info("Service installed or updated.");
+        }
+
+        private static async Task StartServiceAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Start service");
+            using ServiceController controller = new(plan.ServiceName);
+            controller.Refresh();
+            if (controller.Status != ServiceControllerStatus.Running)
+            {
+                controller.Start();
+                await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(20)));
+            }
+
+            log.Info($"Service status: {controller.Status}");
+        }
+
+        private static async Task StopServiceAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            using ServiceController controller = new(plan.ServiceName);
+            controller.Refresh();
+            if (controller.Status is ServiceControllerStatus.Running or ServiceControllerStatus.StartPending)
+            {
+                controller.Stop();
+                await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(20)));
+                log.Info("Service stopped.");
+            }
+        }
+
+        private static void VerifyServiceConfiguration(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Service configuration");
+            string keyPath = $@"SYSTEM\CurrentControlSet\Services\{plan.ServiceName}";
+            using Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(keyPath);
+            if (key is null)
+            {
+                throw new InvalidOperationException("Service registry key was not found.");
+            }
+
+            string imagePath = Convert.ToString(key.GetValue("ImagePath")) ?? string.Empty;
+            string objectName = Convert.ToString(key.GetValue("ObjectName")) ?? string.Empty;
+            log.Info($"Service binary path: {imagePath}");
+            log.Info($"Service account: {objectName}");
+
+            if (!imagePath.Contains(plan.ServiceExePath, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Service binary path is not the verification install path: {imagePath}");
+            }
+
+            if (!string.Equals(objectName, "LocalSystem", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Service account is not LocalSystem: {objectName}");
+            }
+        }
+
+        private static async Task<ServiceResponse> SendStatusAsync(VerificationLog log)
+        {
+            log.Section("Status pipe");
+            ServiceResponse status = await PipeClient.SendAsync(
+                ServiceContractConstants.StatusPipeName,
+                new ServiceRequest { Kind = ServiceCommandKind.GetServiceStatus },
+                CancellationToken.None);
+            log.Info(JsonSerializer.Serialize(status, JsonOptions));
+            return status;
+        }
+
+        private static async Task<ServiceResponse> SendAdminAsync(ServiceRequest request, VerificationLog log, string title)
+        {
+            log.Section(title);
+            ServiceResponse response = await PipeClient.SendAsync(
+                ServiceContractConstants.AdminPipeName,
+                request,
+                CancellationToken.None);
+            log.Info(JsonSerializer.Serialize(response, JsonOptions));
+            return response;
+        }
+
+        private static async Task VerifyPriorityMutationAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Priority mutation using TestTarget");
+            string targetExe = Path.Combine(plan.InstallDirectory, "PriorityGear.TestTarget.exe");
+            using Process target = Process.Start(new ProcessStartInfo
+            {
+                FileName = targetExe,
+                Arguments = "--hold-seconds 120",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            }) ?? throw new InvalidOperationException("Failed to start PriorityGear.TestTarget.");
+
+            try
+            {
+                await Task.Delay(500);
+                target.Refresh();
+                log.Info($"TestTarget PID: {target.Id}");
+                log.Info($"Original priority: {target.PriorityClass}");
+
+                ServiceResponse apply = await SendAdminAsync(new ServiceRequest
+                {
+                    Kind = ServiceCommandKind.TestApplyPriority,
+                    ProcessId = target.Id,
+                    Priority = ProcessPriorityLevel.BelowNormal
+                }, log, "Admin pipe priority apply");
+                if (!apply.Succeeded)
+                {
+                    throw new InvalidOperationException($"Admin priority apply failed: {apply.Message}");
+                }
+
+                target.Refresh();
+                log.Info($"Priority after apply: {target.PriorityClass}");
+                if (target.PriorityClass != ProcessPriorityClass.BelowNormal)
+                {
+                    throw new InvalidOperationException($"Priority did not become BelowNormal: {target.PriorityClass}");
+                }
+
+                ServiceResponse restore = await SendAdminAsync(new ServiceRequest
+                {
+                    Kind = ServiceCommandKind.TestApplyPriority,
+                    ProcessId = target.Id,
+                    Priority = ProcessPriorityLevel.Normal
+                }, log, "Admin pipe priority restore");
+                if (!restore.Succeeded)
+                {
+                    throw new InvalidOperationException($"Priority restore failed: {restore.Message}");
+                }
+
+                target.Refresh();
+                log.Info($"Priority after restore: {target.PriorityClass}");
+                if (target.PriorityClass != ProcessPriorityClass.Normal)
+                {
+                    throw new InvalidOperationException($"Priority did not restore to Normal: {target.PriorityClass}");
+                }
+            }
+            finally
+            {
+                if (!target.HasExited)
+                {
+                    target.Kill(entireProcessTree: true);
+                    await target.WaitForExitAsync();
+                }
+            }
+        }
+
+        private static async Task VerifyMachineRulesAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Machine rule validation");
+            string rulesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "PriorityGear");
+            Directory.CreateDirectory(rulesDirectory);
+            string rulesPath = Path.Combine(rulesDirectory, "rules.machine.json");
+            string? backupPath = null;
+            if (File.Exists(rulesPath))
+            {
+                backupPath = rulesPath + ".verification-backup";
+                File.Copy(rulesPath, backupPath, overwrite: true);
+            }
+
+            Guid enabledApproved = Guid.NewGuid();
+            Guid disabled = Guid.NewGuid();
+            Guid unapproved = Guid.NewGuid();
+            Guid mismatched = Guid.NewGuid();
+            Guid pathMismatch = Guid.NewGuid();
+
+            List<MachinePriorityRule> rules =
+            [
+                new() { Id = enabledApproved, DisplayName = "Verification matching rule", Enabled = true, ApprovedByAdmin = true, ExecutableName = "PriorityGear.TestTarget.exe", BasePriority = ProcessPriorityLevel.BelowNormal },
+                new() { Id = disabled, DisplayName = "Verification disabled rule", Enabled = false, ApprovedByAdmin = true, ExecutableName = "PriorityGear.TestTarget.exe", BasePriority = ProcessPriorityLevel.BelowNormal },
+                new() { Id = unapproved, DisplayName = "Verification unapproved rule", Enabled = true, ApprovedByAdmin = false, ExecutableName = "PriorityGear.TestTarget.exe", BasePriority = ProcessPriorityLevel.BelowNormal },
+                new() { Id = mismatched, DisplayName = "Verification mismatched executable", Enabled = true, ApprovedByAdmin = true, ExecutableName = "not-the-target.exe", BasePriority = ProcessPriorityLevel.BelowNormal },
+                new() { Id = pathMismatch, DisplayName = "Verification path mismatch", Enabled = true, ApprovedByAdmin = true, ExecutableName = "PriorityGear.TestTarget.exe", FullPath = @"C:\PriorityGear\missing-target.exe", BasePriority = ProcessPriorityLevel.BelowNormal }
+            ];
+
+            File.WriteAllText(rulesPath, JsonSerializer.Serialize(rules, JsonOptions));
+
+            string targetExe = Path.Combine(plan.InstallDirectory, "PriorityGear.TestTarget.exe");
+            using Process target = Process.Start(new ProcessStartInfo
+            {
+                FileName = targetExe,
+                Arguments = "--hold-seconds 120",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            }) ?? throw new InvalidOperationException("Failed to start PriorityGear.TestTarget for machine rule validation.");
+
+            try
+            {
+                await Task.Delay(500);
+                await ExpectRuleResult(enabledApproved, target.Id, shouldSucceed: true, "enabled approved matching rule", log);
+                await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.TestApplyPriority, ProcessId = target.Id, Priority = ProcessPriorityLevel.Normal }, log, "Restore after matching rule");
+                await ExpectRuleResult(disabled, target.Id, shouldSucceed: false, "disabled rule", log);
+                await ExpectRuleResult(unapproved, target.Id, shouldSucceed: false, "unapproved rule", log);
+                await ExpectRuleResult(mismatched, target.Id, shouldSucceed: false, "mismatched executable rule", log);
+                await ExpectRuleResult(pathMismatch, target.Id, shouldSucceed: false, "path mismatch rule", log);
+            }
+            finally
+            {
+                if (!target.HasExited)
+                {
+                    target.Kill(entireProcessTree: true);
+                    await target.WaitForExitAsync();
+                }
+
+                if (backupPath is not null)
+                {
+                    File.Copy(backupPath, rulesPath, overwrite: true);
+                    File.Delete(backupPath);
+                    log.Info("Original machine rules restored from backup.");
+                }
+                else
+                {
+                    File.Delete(rulesPath);
+                    log.Info("Temporary machine rules removed.");
+                }
+            }
+        }
+
+        private static async Task ExpectRuleResult(Guid ruleId, int processId, bool shouldSucceed, string label, VerificationLog log)
+        {
+            ServiceResponse response = await SendAdminAsync(new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ApplyApprovedMachineRule,
+                RuleId = ruleId,
+                ProcessId = processId
+            }, log, $"Machine rule: {label}");
+            if (response.Succeeded != shouldSucceed)
+            {
+                throw new InvalidOperationException($"Unexpected machine rule result for {label}: {response.Message}");
+            }
+        }
+
+        private static async Task VerifyProbeAsync(VerificationLog log)
+        {
+            log.Section("Denied/protected probe");
+            ServiceResponse response = await SendAdminAsync(new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ProbePriorityAccess,
+                ProcessId = 4
+            }, log, "Probe PID 4");
+            log.Info(response.Succeeded
+                ? "Probe found priority write access for PID 4. No mutation was attempted."
+                : "Probe failed explicitly for PID 4. No mutation was attempted.");
+        }
+
+        private static bool ServiceExists(string serviceName)
+        {
+            return ServiceController.GetServices().Any(service => string.Equals(service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void RunProcess(string fileName, string arguments, VerificationLog log)
+        {
+            using Process process = Process.Start(new ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = arguments,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            }) ?? throw new InvalidOperationException($"Failed to start {fileName}.");
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            log.Info($"{fileName} {arguments}");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                log.Info(output.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                log.Info(error.Trim());
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"{fileName} exited with code {process.ExitCode}: {error} {output}");
+            }
+        }
+
+        private static bool IsElevated()
+        {
+            WindowsPrincipal principal = new(WindowsIdentity.GetCurrent());
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        private void Finish(string summary, VerificationLog log)
+        {
+            log.Info($"Log: {log.Path}");
+            log.Flush();
+            _logBox.Text = log.ToString();
+            MessageBox.Show(
+                $"{summary}\r\n\r\nLog: {log.Path}",
+                "PriorityGear System Mode Verification",
+                ExitCode == 0 ? MessageBoxButtons.OK : MessageBoxButtons.OK,
+                ExitCode == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+        }
+    }
+}

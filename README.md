@@ -33,6 +33,24 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
+## v0.2 System Mode Verification
+
+System Mode is under development on `devel`. The local verification setup is not a production installer and is not published as a release artifact.
+
+Build it with:
+
+```powershell
+.\scripts\build-verification-installer.ps1
+```
+
+Then double-click:
+
+```text
+artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.VerificationSetup.exe
+```
+
+Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\PriorityGear`, verifies the status pipe and administrator mutation pipe, changes and restores priority for `PriorityGear.TestTarget`, validates temporary machine rules, and writes a log under `%ProgramData%\PriorityGear\Logs`.
+
 ## Portable Publish
 
 Framework-dependent:

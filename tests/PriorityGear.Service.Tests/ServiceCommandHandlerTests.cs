@@ -25,6 +25,21 @@ public sealed class ServiceCommandHandlerTests
     }
 
     [Fact]
+    public void StatusPipeRejectsProbeCommands()
+    {
+        ServiceCommandHandler handler = HandlerWithRules([]);
+
+        ServiceResponse response = handler.HandleStatus(new ServiceRequest
+        {
+            Kind = ServiceCommandKind.ProbePriorityAccess,
+            ProcessId = Environment.ProcessId
+        });
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("status pipe", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void AdminCommandRejectsUnavailableCallerIdentity()
     {
         ServiceCommandHandler handler = HandlerWithRules([]);
@@ -61,6 +76,51 @@ public sealed class ServiceCommandHandlerTests
 
         Assert.False(response.Succeeded);
         Assert.Contains("not approved", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ApplyApprovedMachineRuleRejectsMismatchedExecutable()
+    {
+        Guid ruleId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        ServiceCommandHandler handler = HandlerWithRules([
+            new MachinePriorityRule
+            {
+                Id = ruleId,
+                Enabled = true,
+                ApprovedByAdmin = true,
+                ExecutableName = "definitely-not-this-test-process.exe"
+            }
+        ]);
+
+        ServiceResponse response = handler.HandleAdmin(
+            new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ApplyApprovedMachineRule,
+                RuleId = ruleId,
+                ProcessId = Environment.ProcessId,
+                Priority = ProcessPriorityLevel.Normal
+            },
+            new ServiceAuthorizationResult("admin", "S-1-5-32-544", true, "PipeAcl", true, string.Empty));
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("executable name", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ProbePriorityAccessRequiresAdminAuthorization()
+    {
+        ServiceCommandHandler handler = HandlerWithRules([]);
+
+        ServiceResponse response = handler.HandleAdmin(
+            new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ProbePriorityAccess,
+                ProcessId = Environment.ProcessId
+            },
+            new ServiceAuthorizationResult("user", "S-1-5-21", false, "Impersonation", false, "Denied"));
+
+        Assert.False(response.Succeeded);
+        Assert.Equal("Denied", response.Message);
     }
 
     private static ServiceCommandHandler HandlerWithRules(IReadOnlyList<MachinePriorityRule> rules)

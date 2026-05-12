@@ -5,12 +5,15 @@
     <Project Path="src/PriorityGear.Contracts/PriorityGear.Contracts.csproj" />
     <Project Path="src/PriorityGear.Core/PriorityGear.Core.csproj" />
     <Project Path="src/PriorityGear.Service/PriorityGear.Service.csproj" />
+    <Project Path="src/PriorityGear.TestTarget/PriorityGear.TestTarget.csproj" />
+    <Project Path="src/PriorityGear.VerificationSetup/PriorityGear.VerificationSetup.csproj" />
     <Project Path="src/PriorityGear.Windows/PriorityGear.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PriorityGear.App.Tests/PriorityGear.App.Tests.csproj" />
     <Project Path="tests/PriorityGear.Core.Tests/PriorityGear.Core.Tests.csproj" />
     <Project Path="tests/PriorityGear.Service.Tests/PriorityGear.Service.Tests.csproj" />
+    <Project Path="tests/PriorityGear.VerificationSetup.Tests/PriorityGear.VerificationSetup.Tests.csproj" />
     <Project Path="tests/PriorityGear.Windows.Tests/PriorityGear.Windows.Tests.csproj" />
   </Folder>
 </Solution>
