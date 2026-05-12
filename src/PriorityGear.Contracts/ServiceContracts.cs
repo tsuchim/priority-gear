@@ -4,7 +4,8 @@ namespace PriorityGear.Contracts;
 
 public static class ServiceContractConstants
 {
-    public const string PipeName = "PriorityGear.Service.v0";
+    public const string StatusPipeName = "PriorityGear.Service.Status.v0";
+    public const string AdminPipeName = "PriorityGear.Service.Admin.v0";
 }
 
 public enum ServiceCommandKind
@@ -37,6 +38,8 @@ public sealed class ServiceResponse
     public List<MachinePriorityRule>? MachineRules { get; set; }
 
     public PriorityApplyDto? PriorityApply { get; set; }
+
+    public ServiceAuthorizationDto? Authorization { get; set; }
 }
 
 public sealed class ServiceStatusDto
@@ -70,4 +73,19 @@ public sealed class PriorityApplyDto
     public int? Win32Error { get; set; }
 
     public string Message { get; set; } = string.Empty;
+}
+
+public sealed class ServiceAuthorizationDto
+{
+    public string? CallerName { get; set; }
+
+    public string? CallerSid { get; set; }
+
+    public bool IsAdministrator { get; set; }
+
+    public string AuthorizationSource { get; set; } = "Unavailable";
+
+    public bool CommandAllowed { get; set; }
+
+    public string DenialReason { get; set; } = string.Empty;
 }

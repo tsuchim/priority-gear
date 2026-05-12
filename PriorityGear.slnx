@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/PriorityGear.App/PriorityGear.App.csproj" />
+    <Project Path="src/PriorityGear.Cli/PriorityGear.Cli.csproj" />
     <Project Path="src/PriorityGear.Contracts/PriorityGear.Contracts.csproj" />
     <Project Path="src/PriorityGear.Core/PriorityGear.Core.csproj" />
     <Project Path="src/PriorityGear.Service/PriorityGear.Service.csproj" />
@@ -9,6 +10,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/PriorityGear.App.Tests/PriorityGear.App.Tests.csproj" />
     <Project Path="tests/PriorityGear.Core.Tests/PriorityGear.Core.Tests.csproj" />
+    <Project Path="tests/PriorityGear.Service.Tests/PriorityGear.Service.Tests.csproj" />
     <Project Path="tests/PriorityGear.Windows.Tests/PriorityGear.Windows.Tests.csproj" />
   </Folder>
 </Solution>

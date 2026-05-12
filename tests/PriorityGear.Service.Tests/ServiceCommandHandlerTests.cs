@@ -1,0 +1,77 @@
+using System.Text.Json;
+using PriorityGear.Contracts;
+using PriorityGear.Core;
+using PriorityGear.Service;
+using PriorityGear.Windows;
+
+namespace PriorityGear.Service.Tests;
+
+public sealed class ServiceCommandHandlerTests
+{
+    [Fact]
+    public void StatusPipeRejectsMutationCommands()
+    {
+        ServiceCommandHandler handler = HandlerWithRules([]);
+
+        ServiceResponse response = handler.HandleStatus(new ServiceRequest
+        {
+            Kind = ServiceCommandKind.TestApplyPriority,
+            ProcessId = Environment.ProcessId,
+            Priority = ProcessPriorityLevel.Normal
+        });
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("status pipe", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AdminCommandRejectsUnavailableCallerIdentity()
+    {
+        ServiceCommandHandler handler = HandlerWithRules([]);
+        ServiceAuthorizationResult authorization = new(null, null, false, "Unavailable", false, "Caller identity unavailable.");
+
+        ServiceResponse response = handler.HandleAdmin(new ServiceRequest { Kind = ServiceCommandKind.GetServiceStatus }, authorization);
+
+        Assert.False(response.Succeeded);
+        Assert.Equal("Unavailable", response.Authorization!.AuthorizationSource);
+    }
+
+    [Fact]
+    public void ApplyApprovedMachineRuleRequiresApprovedEnabledRule()
+    {
+        ServiceCommandHandler handler = HandlerWithRules([
+            new MachinePriorityRule
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                Enabled = true,
+                ApprovedByAdmin = false,
+                ExecutableName = "example.exe"
+            }
+        ]);
+
+        ServiceResponse response = handler.HandleAdmin(
+            new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ApplyApprovedMachineRule,
+                RuleId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                ProcessId = Environment.ProcessId,
+                Priority = ProcessPriorityLevel.Normal
+            },
+            new ServiceAuthorizationResult("admin", "S-1-5-32-544", true, "PipeAcl", true, string.Empty));
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("not approved", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ServiceCommandHandler HandlerWithRules(IReadOnlyList<MachinePriorityRule> rules)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "rules.machine.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(rules, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        return new ServiceCommandHandler(
+            new Win32PriorityApplier(),
+            new MachineRuleStore(path),
+            () => new PrivilegeEnableResult(true, false, Win32PriorityStatus.PrivilegeUnavailable, 1300, "Unavailable"));
+    }
+}

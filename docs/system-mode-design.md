@@ -26,14 +26,23 @@ User rules remain at:
 
 ## IPC
 
-Named pipe IPC is local-only. Initial operations:
+Named pipe IPC is local-only and split by authority:
+
+- `PriorityGear.Service.Status.v0`: read-only status pipe for normal local users.
+- `PriorityGear.Service.Admin.v0`: administrator-only mutation pipe protected with an explicit pipe ACL.
+
+The status pipe never executes priority mutation. The admin pipe is the only path for diagnostic and approved machine-rule mutation.
+
+Initial operations:
 
 - `GetServiceStatus`
 - `GetMachineRules`
 - `TestApplyPriority`
 - `ApplyApprovedMachineRule`
 
-Normal users may request read-only status. Mutating commands require an administrator caller and administrator-approved machine rules.
+Normal users may request read-only status. Mutating commands require an administrator caller and, for `ApplyApprovedMachineRule`, an enabled administrator-approved machine rule that matches the target process.
+
+If caller identity cannot be verified, mutation is denied and reported.
 
 ## Win32 Priority API
 

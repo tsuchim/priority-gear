@@ -7,10 +7,12 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Windows Service host for administrator-approved machine control.
 - Machine rules stored separately under `%ProgramData%\PriorityGear\rules.machine.json`.
 - Local named pipe IPC between GUI and service.
+- Separate status and administrator-only mutation pipes.
 - Service-side caller and scope validation.
 - Explicit Win32 priority API with structured failures.
 - `SeDebugPrivilege` enable attempt and visible privilege status.
 - Developer/admin service install scripts.
+- Developer CLI diagnostics for service status and admin-pipe test commands.
 
 ## Not Planned for v0.2
 

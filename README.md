@@ -84,6 +84,7 @@ PriorityGear changes process priority and may affect system responsiveness or st
 It is provided as-is, without warranty. Use it at your own risk.
 System Mode, when enabled in a later version, is an administrator feature and may affect system services.
 PriorityGear does not bypass Windows security boundaries and does not target protected processes.
+System Mode development uses separate local named pipes for read-only status and administrator-only mutation. Mutating commands are denied when caller identity cannot be verified.
 
 ## License
 

@@ -10,10 +10,20 @@ public sealed class MachineRuleStore
         WriteIndented = true
     };
 
-    public string Path { get; } = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "PriorityGear",
-        "rules.machine.json");
+    public MachineRuleStore()
+        : this(System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "PriorityGear",
+            "rules.machine.json"))
+    {
+    }
+
+    public MachineRuleStore(string path)
+    {
+        Path = path;
+    }
+
+    public string Path { get; }
 
     public IReadOnlyList<MachinePriorityRule> Load()
     {

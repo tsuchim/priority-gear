@@ -21,7 +21,7 @@ public sealed class SystemModeClient
 
         try
         {
-            await using NamedPipeClientStream pipe = new(".", ServiceContractConstants.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await using NamedPipeClientStream pipe = new(".", ServiceContractConstants.StatusPipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
             await pipe.ConnectAsync(timeoutSource.Token);
             await using StreamWriter writer = new(pipe, leaveOpen: true) { AutoFlush = true };
             string requestJson = JsonSerializer.Serialize(request, JsonOptions);

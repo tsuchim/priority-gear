@@ -17,6 +17,7 @@ The GUI must not become an unrestricted remote control for a LocalSystem service
 System Mode service execution may use LocalSystem. LocalSystem has strong local machine privileges, so the service boundary is a security boundary:
 
 - The service must validate caller identity.
+- Named pipe IPC separates read-only status from administrator-only mutation.
 - The service must distinguish read-only status requests from mutating requests.
 - The service must validate requested rule scope.
 - Machine rules must be administrator-approved before execution.
