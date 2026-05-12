@@ -16,4 +16,12 @@ public sealed class WindowsPriorityMapperTests
     {
         Assert.Equal(expected, WindowsPriorityMapper.ToWindows(priority));
     }
+
+    [Fact]
+    public void NormalRulePriorityValues_DoNotExposeRealtime()
+    {
+        Assert.DoesNotContain(
+            Enum.GetNames<ProcessPriorityLevel>(),
+            static name => string.Equals(name, "Realtime", StringComparison.OrdinalIgnoreCase));
+    }
 }
