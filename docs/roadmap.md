@@ -21,6 +21,8 @@
 - Named pipe IPC.
 - Service-side authorization and validation.
 - Service-name matching design for `svchost.exe`.
+- Explicit Win32 priority API and privilege result reporting.
+- Developer/admin service scripts.
 
 ## Later
 

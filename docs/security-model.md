@@ -14,6 +14,16 @@ System Mode is future work and requires administrator-approved Windows Service i
 
 The GUI must not become an unrestricted remote control for a LocalSystem service. A future service must validate caller identity, requested rule scope, target process scope, and authorization before applying any change.
 
+System Mode service execution may use LocalSystem. LocalSystem has strong local machine privileges, so the service boundary is a security boundary:
+
+- The service must validate caller identity.
+- The service must distinguish read-only status requests from mutating requests.
+- The service must validate requested rule scope.
+- Machine rules must be administrator-approved before execution.
+- Access denied is a valid result and must be reported explicitly.
+- Protected processes are reported as unsupported.
+- Realtime priority remains hidden unless explicitly designed later.
+
 ## Protected Processes
 
 Protected processes are not targets. PriorityGear must report protected or unsupported cases explicitly.

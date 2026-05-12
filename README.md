@@ -78,6 +78,13 @@ System Mode is planned for a later milestone and will require administrator-appr
 
 PriorityGear has no telemetry, no network access, and no updater.
 
+## Risk Notice
+
+PriorityGear changes process priority and may affect system responsiveness or stability.
+It is provided as-is, without warranty. Use it at your own risk.
+System Mode, when enabled in a later version, is an administrator feature and may affect system services.
+PriorityGear does not bypass Windows security boundaries and does not target protected processes.
+
 ## License
 
 PriorityGear is released under the MIT License.

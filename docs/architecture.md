@@ -10,6 +10,8 @@ User Mode is the v0.1 product. The WPF app runs in the current user session, dis
 
 System Mode is future work. It will use a Windows Service for administrator-approved machine-wide control. The GUI must not become an unrestricted remote control for a LocalSystem service.
 
+The v0.2 foundation introduces a service boundary, machine-rule contracts, named pipe IPC, and explicit Win32 priority APIs. Mutating service commands must be authorized by the service; the GUI is only a client.
+
 ## Projects
 
 - `PriorityGear.App`: WPF UI, tray integration, monitoring loop, user-session foreground polling.
@@ -19,6 +21,7 @@ System Mode is future work. It will use a Windows Service for administrator-appr
 - `PriorityGear.Core`: rule model, matching, desired-priority calculation, runtime state, structured operation results.
 - `PriorityGear.Windows`: thin Windows API wrapper for processes, priorities, foreground window PID, and capability classification.
 - `PriorityGear.Service`: placeholder boundary for future System Mode.
+- `PriorityGear.Contracts`: neutral IPC and machine-rule contracts shared by the app and service.
 
 ## Rule Engine
 
