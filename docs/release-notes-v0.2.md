@@ -1,8 +1,8 @@
 # Release Notes v0.2
 
-PriorityGear v0.2 is planned as the first System Mode foundation.
+PriorityGear v0.2 is the first System Mode foundation preview.
 
-## Planned
+## In Scope
 
 - Windows Service host for administrator-approved machine control.
 - Machine rules stored separately under `%ProgramData%\PriorityGear\rules.machine.json`.
@@ -36,14 +36,19 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Current-scan-only monitor runtime summaries with stale deleted-rule/process entries pruned.
 - Shared-host dry-run/reject verification without mutating real shared hosts.
 - Faster service discovery using SCM `EnumServicesStatusEx` instead of repeated `sc.exe queryex` calls.
+- Minimal GUI System Mode status visibility.
+- Versioned install/update layout for local verification.
+- Explicit cleanup expectations for temporary test service and temporary machine rules.
 
-## Not Planned for v0.2
+## Out of Scope
 
 - Microsoft Store packaging.
 - winget.
 - Code signing.
 - Polished installer UX.
 - Arbitrary `svchost.exe` mutation or shared-host changes without explicit service-name safety gates.
+- GUI machine-rule editing.
+- System Mode active-window priority switching.
 - CPU affinity, I/O priority, or EcoQoS.
 - Realtime priority UI.
 - Kernel driver.

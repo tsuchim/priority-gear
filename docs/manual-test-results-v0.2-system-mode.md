@@ -465,6 +465,42 @@ Follow-up hardening after this pass:
 - targeted service discovery avoids full process probing for every service process
 - verification setup adds a shared-host dry-run/reject safety check without mutating real shared hosts
 
+## Twelfth Elevated Verification Attempt
+
+Date: 2026-05-14
+
+Status: passed.
+
+Environment:
+
+- Verification setup version: `20260514-004830`
+- Service binary path: `C:\Program Files\PriorityGear\versions\20260514-004830\PriorityGear.Service.exe`
+- `PriorityGear.Service` account: `LocalSystem`
+- `SeDebugPrivilege`: `Success`
+- Approximate total verification duration: about 8 seconds
+
+Timing observations:
+
+- Direct service discovery: 7 ms
+- Targeted service host group discovery: 2 ms
+- Bounded service discovery summary: 130 ms
+- Shared-host bounded discovery: 131 ms
+- Shared-host post-scan targeted discovery: 3 ms
+
+Successful checks:
+
+- normal TestTarget priority mutation succeeded
+- machine-rule monitor path succeeded
+- LocalSystem TestTarget service mutation succeeded
+- service-name machine rule for `PriorityGear.TestTarget.Service` succeeded
+- shared-host `svchost.exe` dry-run/reject rule returned `SharedHostRejected`
+- shared-host priority remained `Normal`
+- PID 4 probe returned `AccessDenied`, Win32 error `5`, with no mutation attempted
+- temporary service and temporary machine rules were cleaned up
+- final verdict: `passed`
+
+This confirms that the SCM API discovery change removed the practical verification delay. It still does not claim arbitrary shared-host `svchost.exe` mutation.
+
 ## Historical Non-Elevated Smoke Test
 
 - User privilege level: normal user (`IsElevated=false`)

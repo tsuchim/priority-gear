@@ -41,9 +41,9 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.2 System Mode 検証
+## v0.2 System Mode Preview
 
-System Mode は `devel` で開発中です。検証用 setup は本番インストーラーではなく、GitHub Releases には公開しません。
+System Mode は `devel` で release-candidate preview として開発中です。検証用 setup は本番インストーラーではなく、GitHub Releases には公開しません。
 
 作成:
 
@@ -59,8 +59,14 @@ artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.Ver
 
 setup は `%ProgramFiles%\PriorityGear` に検証用 payload を配置し、LocalSystem service を登録・起動し、status pipe / 管理者 mutation pipe、`PriorityGear.TestTarget` の優先度変更と復元、temporary machine rule、machine-rule monitor scan path、service-process discovery の検証を行います。ログは `%ProgramData%\PriorityGear\Logs` に出力されます。
 
-v0.2 検証では、対話ユーザー側の TestTarget、machine-rule monitor path、一時的な LocalSystem-owned `PriorityGear.TestTarget.Service`、targeted service discovery、その安全な temporary service への service-name machine rule が成功済みです。
+v0.2 検証では、対話ユーザー側の TestTarget、machine-rule monitor path、一時的な LocalSystem-owned `PriorityGear.TestTarget.Service`、targeted service discovery、その安全な temporary service への service-name machine rule が成功済みです。SCM API discovery 後、検証全体はテスト環境で約 8 秒になっています。
 
-`devel` には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。SCM API ベースの service-process discovery と service-name rule も入りましたが、shared-host safety gate 付きです。任意の `svchost.exe` 制御はまだ主張しません。
+`devel` には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。SCM API ベースの service-process discovery と service-name rule も入りましたが、shared-host safety gate 付きです。shared-host `svchost.exe` の dry-run / reject は検証済みですが、任意の `svchost.exe` 制御はまだ主張しません。
+
+v0.2 の範囲は LocalSystem service の検証用 install/update、status/admin named pipe、service 経由の priority mutation、machine-rule monitor、service-process discovery、service-name machine rule、CLI 管理、最小限の GUI System Mode status 表示です。
+
+v0.2 の範囲外は Store/winget 配布、署名、本番 MSI/MSIX packaging、GUI machine-rule editing、System Mode の active-window priority switching、任意の shared-host mutation、CPU affinity、I/O priority、EcoQoS、Realtime priority UI、driver、telemetry、network、updater です。
+
+検証後の状態として、`PriorityGear.Service` は install/running のまま残る場合があります。一時的な `PriorityGear.TestTarget.Service` と temporary machine rules は削除され、`%ProgramData%\PriorityGear\Logs` は残ります。`%ProgramData%\PriorityGear\rules.machine.json` は保持または復元されます。古い version directory cleanup は best-effort です。
 
 ライセンスは MIT です。

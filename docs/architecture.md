@@ -8,9 +8,9 @@ User Mode is the v0.1 product. The WPF app runs in the current user session, dis
 
 ## System Mode
 
-System Mode is future work. It will use a Windows Service for administrator-approved machine-wide control. The GUI must not become an unrestricted remote control for a LocalSystem service.
+System Mode is the v0.2 preview boundary. It uses an administrator-approved Windows Service for machine-rule control where Windows permits it. The GUI must not become an unrestricted remote control for a LocalSystem service.
 
-The v0.2 foundation introduces a service boundary, machine-rule contracts, named pipe IPC, and explicit Win32 priority APIs. Mutating service commands must be authorized by the service; the GUI is only a client.
+The v0.2 foundation includes a service boundary, machine-rule contracts, named pipe IPC, and explicit Win32 priority APIs. Mutating service commands must be authorized by the service; the GUI and CLI are only clients.
 
 ## Projects
 
@@ -20,12 +20,12 @@ The v0.2 foundation introduces a service boundary, machine-rule contracts, named
 - `PriorityGear.App.ViewModels`: process and rule presentation models for WPF.
 - `PriorityGear.Core`: rule model, matching, desired-priority calculation, runtime state, structured operation results.
 - `PriorityGear.Windows`: thin Windows API wrapper for processes, priorities, foreground window PID, and capability classification.
-- `PriorityGear.Service`: placeholder boundary for future System Mode.
+- `PriorityGear.Service`: LocalSystem-capable worker service for System Mode status, machine-rule monitoring, service discovery, and authorized priority mutation.
 - `PriorityGear.Contracts`: neutral IPC and machine-rule contracts shared by the app and service.
 
 ## Rule Engine
 
-The rule engine matches process snapshots against enabled rules. Initial matching supports executable name, full path, and path suffix. Command-line and service-name matching are reserved fields.
+The User Mode rule engine matches process snapshots against enabled rules. Initial matching supports executable name, full path, and path suffix. Machine rules add administrator-approved service-name matching in System Mode.
 
 Rules are evaluated in display order, which is creation order in v0.1. The first matching enabled `CurrentUser` rule wins. `Machine` and `ServiceProcess` scopes are reserved and ignored in User Mode.
 
@@ -54,6 +54,6 @@ Runtime operations produce structured results with status, error details, and ti
 
 Repeated identical apply failures are throttled by process id, rule id, desired priority, and failure category.
 
-## Future IPC Boundary
+## IPC Boundary
 
-System Mode IPC will use an authenticated local boundary such as named pipes. The service must validate caller identity, requested scope, rule origin, and requested operation before acting.
+System Mode IPC uses local named pipes. The status pipe is read-only. The admin pipe is protected for administrator mutation commands. The service validates caller identity, requested scope, rule origin, and requested operation before acting.

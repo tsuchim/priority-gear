@@ -10,9 +10,9 @@ Missing executable path is not treated as proof that priority cannot be changed.
 
 ## System Mode
 
-System Mode is future work and requires administrator-approved Windows Service installation.
+System Mode is the v0.2 preview boundary and requires administrator-approved Windows Service installation.
 
-The GUI must not become an unrestricted remote control for a LocalSystem service. A future service must validate caller identity, requested rule scope, target process scope, and authorization before applying any change.
+The GUI must not become an unrestricted remote control for a LocalSystem service. The service validates caller identity, requested rule scope, target process scope, and authorization before applying any change.
 
 System Mode service execution may use LocalSystem. LocalSystem has strong local machine privileges, so the service boundary is a security boundary:
 
@@ -26,6 +26,8 @@ System Mode service execution may use LocalSystem. LocalSystem has strong local 
 - Realtime priority remains hidden unless explicitly designed later.
 
 The v0.2 verification setup is a local administrator tool for validating this boundary. It requests UAC, installs the service as LocalSystem under `%ProgramFiles%\PriorityGear`, uses a harmless `PriorityGear.TestTarget` process for mutation verification, and uses a no-mutation probe for denied/protected classification.
+
+Shared service hosts are guarded. Executable-only `svchost.exe` rules are not treated as safe. Service-name rules require administrator approval, and shared-host mutation is not claimed as generally supported.
 
 ## Protected Processes
 
@@ -44,4 +46,4 @@ Failures are explicit:
 - Do not silently retry aggressively.
 - Do not report success when the main operation failed.
 
-PriorityGear v0.1 has no telemetry, no network access, and no updater.
+PriorityGear has no telemetry, no network access, and no updater.

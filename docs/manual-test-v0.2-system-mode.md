@@ -24,7 +24,7 @@ The setup installs the service to `%ProgramFiles%\PriorityGear`, starts it as `L
 
 The admin pipe protocol reads one bounded request line before caller impersonation. No mutation is executed until the caller is verified as an administrator.
 
-The setup also creates a temporary `PriorityGear.TestTarget.Service` running as LocalSystem, changes and restores that service-owned process priority, then stops and deletes the temporary service. This proves System Mode against a safe LocalSystem-owned target without touching arbitrary Windows services.
+The setup also creates a temporary `PriorityGear.TestTarget.Service` running as LocalSystem, changes and restores that service-owned process priority, verifies targeted service-process discovery and service-name machine rules, checks shared-host dry-run/reject behavior without mutating real shared hosts, then stops and deletes the temporary service. This proves System Mode against safe controlled targets without touching arbitrary Windows services.
 
 The temporary service is created with structured `sc.exe` arguments and a binary path equivalent to:
 
@@ -39,6 +39,14 @@ Reruns are expected to be idempotent. The setup first checks for an existing `Pr
 ```
 
 The service `binPath` is updated to the new version directory. Old version cleanup is best-effort and does not fail verification.
+
+Expected post-verification state:
+
+- `PriorityGear.Service` may remain installed and running.
+- `PriorityGear.TestTarget.Service` must not remain installed.
+- Temporary machine rules are deleted.
+- `%ProgramData%\PriorityGear\Logs` remains.
+- `%ProgramData%\PriorityGear\rules.machine.json` is preserved or restored.
 
 If the setup fails, send back the log shown in the summary window. The setup also collects the service log tail from `%ProgramData%\PriorityGear\Logs\service-current.log` when status pipe readiness fails.
 
