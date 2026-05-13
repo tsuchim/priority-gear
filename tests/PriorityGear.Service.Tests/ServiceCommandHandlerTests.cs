@@ -123,6 +123,30 @@ public sealed class ServiceCommandHandlerTests
         Assert.Equal("Denied", response.Message);
     }
 
+    [Fact]
+    public async Task PipeProtocolReadsSingleBoundedRequestLine()
+    {
+        await using MemoryStream stream = new();
+        await using StreamWriter writer = new(stream, leaveOpen: true);
+        await writer.WriteAsync("{\"kind\":0}\n");
+        await writer.FlushAsync();
+        stream.Position = 0;
+
+        string? line = await PipeJsonProtocol.ReadRequestLineAsync(stream, CancellationToken.None);
+        ServiceRequest? request = PipeJsonProtocol.DeserializeRequest(line);
+
+        Assert.Equal("{\"kind\":0}", line);
+        Assert.Equal(ServiceCommandKind.GetServiceStatus, request!.Kind);
+    }
+
+    [Fact]
+    public async Task PipeProtocolRejectsOversizedRequestLine()
+    {
+        await using MemoryStream stream = new(new byte[PipeJsonProtocol.MaxRequestLineBytes + 1]);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => PipeJsonProtocol.ReadRequestLineAsync(stream, CancellationToken.None));
+    }
+
     private static ServiceCommandHandler HandlerWithRules(IReadOnlyList<MachinePriorityRule> rules)
     {
         string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));

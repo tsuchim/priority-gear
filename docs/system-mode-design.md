@@ -73,6 +73,8 @@ The log records startup identity, service mode, `SeDebugPrivilege`, pipe server 
 
 Pipe IPC uses newline-delimited JSON. Each client writes exactly one single-line request and waits for exactly one single-line response. Pretty-printed JSON is not used on the wire because the server reads one request line.
 
+Admin pipe request lines are bounded to 64 KiB. The service reads exactly one bounded request line before calling `RunAsClient` for caller identity because Windows named pipe impersonation may fail before data is read. The request is not executed until authorization succeeds.
+
 ## Win32 Priority API
 
 System Mode uses explicit Windows APIs:

@@ -22,6 +22,8 @@ Do not start with critical system processes.
 
 The setup installs the service to `%ProgramFiles%\PriorityGear`, starts it as `LocalSystem`, checks the status pipe, checks the administrator mutation pipe, launches `PriorityGear.TestTarget` without foreground focus, changes its priority through the service path, restores it, validates temporary machine rules, and performs a no-mutation probe for denied/protected classification.
 
+The admin pipe protocol reads one bounded request line before caller impersonation. No mutation is executed until the caller is verified as an administrator.
+
 Reruns are expected to be idempotent. The setup first checks for an existing `PriorityGear.Service`, stops it through SCM if it is running, waits for the service process to exit, then installs the new payload into a fresh versioned directory:
 
 ```text

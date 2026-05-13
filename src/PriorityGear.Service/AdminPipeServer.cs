@@ -43,11 +43,18 @@ public sealed class AdminPipeServer(ServiceCommandHandler handler, ServiceFileLo
 
     private async Task HandleClientAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
     {
-        ServiceAuthorizationResult authorization = ServiceAuthorization.EvaluateAdminPipeClient(pipe);
+        ServiceAuthorizationResult? authorization = null;
         try
         {
+            string? requestLine = await PipeJsonProtocol.ReadRequestLineAsync(pipe, cancellationToken);
+            log.Info(requestLine is null
+                ? "Admin pipe request line read: <empty>"
+                : $"Admin pipe request line read. Bytes={System.Text.Encoding.UTF8.GetByteCount(requestLine)}");
+
+            log.Info("Admin pipe caller authorization started after request read.");
+            authorization = ServiceAuthorization.EvaluateAdminPipeClient(pipe);
             log.Info($"Admin pipe authorization: Allowed={authorization.CommandAllowed}; Caller={authorization.CallerName}; Source={authorization.AuthorizationSource}; Denial={authorization.DenialReason}");
-            ServiceRequest? request = await PipeJsonProtocol.ReadRequestAsync(pipe, cancellationToken);
+            ServiceRequest? request = PipeJsonProtocol.DeserializeRequest(requestLine);
             log.Info(request is null ? "Admin pipe received empty request." : $"Admin pipe command: {request.Kind}");
             ServiceResponse response = request is null
                 ? new ServiceResponse { Succeeded = false, Message = "Empty request.", Authorization = authorization.ToDto() }
@@ -59,7 +66,7 @@ public sealed class AdminPipeServer(ServiceCommandHandler handler, ServiceFileLo
         catch (Exception ex)
         {
             log.Error(ex, "Admin pipe client exception.");
-            await TryWriteFailureAsync(pipe, authorization, $"Admin pipe server exception: {ex.GetType().Name}: {ex.Message}", cancellationToken);
+            await TryWriteFailureAsync(pipe, authorization ?? new ServiceAuthorizationResult(null, null, false, "Unavailable", false, "Authorization was not evaluated."), $"Admin pipe server exception: {ex.GetType().Name}: {ex.Message}", cancellationToken);
         }
     }
 

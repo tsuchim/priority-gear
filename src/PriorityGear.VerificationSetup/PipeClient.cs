@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Security.Principal;
 using System.Text.Json;
 using PriorityGear.Contracts;
 
@@ -12,7 +13,10 @@ public static class PipeClient
     {
         try
         {
-            await using NamedPipeClientStream pipe = new(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            TokenImpersonationLevel impersonationLevel = string.Equals(pipeName, ServiceContractConstants.AdminPipeName, StringComparison.Ordinal)
+                ? TokenImpersonationLevel.Impersonation
+                : TokenImpersonationLevel.Identification;
+            await using NamedPipeClientStream pipe = new(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous, impersonationLevel);
             await pipe.ConnectAsync(5000, cancellationToken);
             await using StreamWriter writer = new(pipe, leaveOpen: true) { AutoFlush = true };
             using StreamReader reader = new(pipe, leaveOpen: true);

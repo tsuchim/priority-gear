@@ -103,6 +103,46 @@ Fix recorded after this attempt:
 - The base install directory is not cleaned during the normal verification path.
 - Old version cleanup is best-effort and non-blocking.
 
+## Fourth Elevated Verification Attempt
+
+Date: 2026-05-13
+
+The fourth elevated verification setup run succeeded through versioned install, service start, status pipe, and `SeDebugPrivilege`, then failed at admin pipe mutation authorization.
+
+Observed result:
+
+```text
+Version install directory: C:\Program Files\PriorityGear\versions\20260513-184539
+Payload installed to version directory.
+Service status: Running
+Service binary path: C:\Program Files\PriorityGear\versions\20260513-184539\PriorityGear.Service.exe
+Service account: LocalSystem
+Status pipe attempt 1: Succeeded=True; Message=Service running.
+seDebugPrivilege.succeeded=true
+
+STEP: Admin pipe priority apply
+"succeeded": false
+"message": "Caller identity unavailable: 名前付きパイプからデータが読み取られるまで、そのパイプを介して偽装することはできません。"
+"authorizationSource": "Unavailable"
+"commandAllowed": false
+```
+
+Interpretation:
+
+- Versioned install and service startup worked.
+- Status pipe worked.
+- `SeDebugPrivilege` was enabled.
+- Admin pipe authorization was attempted before data was read from the pipe.
+- Windows named pipe impersonation can fail before request data is read.
+
+Fix recorded after this attempt:
+
+- Admin pipe now reads one bounded request line before caller impersonation.
+- Maximum request line size is 64 KiB.
+- Admin pipe authorization starts after request read.
+- CLI and verification setup use explicit `TokenImpersonationLevel.Impersonation` for admin pipe connections.
+- Mutation remains fail-closed if caller identity is still unavailable.
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)
