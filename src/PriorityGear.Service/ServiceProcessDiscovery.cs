@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using Microsoft.Win32;
 using PriorityGear.Contracts;
@@ -13,26 +14,23 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
     public IReadOnlyList<ServiceProcessInfoDto> Discover()
     {
         Dictionary<int, ServiceProcessInfoDto> byPid = [];
-        foreach (ServiceController service in ServiceController.GetServices())
+        foreach (ServiceProcessRecord service in EnumerateServiceProcesses())
         {
-            using (service)
+            int pid = service.ProcessId;
+            if (pid <= 0)
             {
-                int? pid = TryGetServicePid(service.ServiceName);
-                if (pid is null or <= 0)
-                {
-                    continue;
-                }
-
-                if (!byPid.TryGetValue(pid.Value, out ServiceProcessInfoDto? info))
-                {
-                    info = CreateProcessInfo(pid.Value);
-                    byPid[pid.Value] = info;
-                }
-
-                info.ServiceNames.Add(service.ServiceName);
-                info.SharedServiceHost = info.ServiceNames.Count > 1;
-                info.Owner ??= TryGetRegistryValue(service.ServiceName, "ObjectName");
+                continue;
             }
+
+            if (!byPid.TryGetValue(pid, out ServiceProcessInfoDto? info))
+            {
+                info = CreateProcessInfo(pid);
+                byPid[pid] = info;
+            }
+
+            info.ServiceNames.Add(service.ServiceName);
+            info.SharedServiceHost = info.ServiceNames.Count > 1;
+            info.Owner ??= TryGetRegistryValue(service.ServiceName, "ObjectName");
         }
 
         foreach (ServiceProcessInfoDto info in byPid.Values)
@@ -75,17 +73,18 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
     {
         try
         {
-            using ServiceController service = new(serviceName);
-            int? pid = TryGetServicePid(service.ServiceName);
-            if (pid is null or <= 0)
+            IReadOnlyList<ServiceProcessRecord> records = EnumerateServiceProcesses();
+            ServiceProcessRecord? service = records
+                .FirstOrDefault(candidate => string.Equals(candidate.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase));
+            if (service is null || service.ProcessId <= 0)
             {
                 return null;
             }
 
-            ServiceProcessInfoDto info = CreateProcessInfo(pid.Value);
+            ServiceProcessInfoDto info = CreateProcessInfo(service.ProcessId);
             info.ServiceNames.Add(service.ServiceName);
             info.Owner = TryGetRegistryValue(service.ServiceName, "ObjectName");
-            info.SharedServiceHost = CountServicesForPid(pid.Value) > 1;
+            info.SharedServiceHost = records.Count(candidate => candidate.ProcessId == service.ProcessId) > 1;
             return info;
         }
         catch
@@ -108,20 +107,16 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
     public ServiceProcessInfoDto? DiscoverHostGroupByProcessId(int processId)
     {
         ServiceProcessInfoDto? info = null;
-        foreach (ServiceController service in ServiceController.GetServices())
+        foreach (ServiceProcessRecord service in EnumerateServiceProcesses())
         {
-            using (service)
+            if (service.ProcessId != processId)
             {
-                int? pid = TryGetServicePid(service.ServiceName);
-                if (pid != processId)
-                {
-                    continue;
-                }
-
-                info ??= CreateProcessInfo(processId);
-                info.ServiceNames.Add(service.ServiceName);
-                info.Owner ??= TryGetRegistryValue(service.ServiceName, "ObjectName");
+                continue;
             }
+
+            info ??= CreateProcessInfo(processId);
+            info.ServiceNames.Add(service.ServiceName);
+            info.Owner ??= TryGetRegistryValue(service.ServiceName, "ObjectName");
         }
 
         if (info is not null)
@@ -155,58 +150,73 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
         }
     }
 
-    private static int? TryGetServicePid(string serviceName)
+    private static IReadOnlyList<ServiceProcessRecord> EnumerateServiceProcesses()
     {
+        nint manager = OpenSCManager(null, null, ScManagerEnumerateService);
+        if (manager == 0)
+        {
+            return [];
+        }
+
         try
         {
-            using Process process = Process.Start(new ProcessStartInfo
+            _ = EnumServicesStatusEx(
+                manager,
+                ScEnumProcessInfo,
+                ServiceWin32,
+                ServiceStateAll,
+                nint.Zero,
+                0,
+                out int bytesNeeded,
+                out _,
+                out _,
+                null);
+
+            if (bytesNeeded <= 0)
             {
-                FileName = "sc.exe",
-                ArgumentList = { "queryex", serviceName },
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            }) ?? throw new InvalidOperationException("Failed to start sc.exe.");
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-            foreach (string line in output.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
+                return [];
+            }
+
+            nint buffer = Marshal.AllocHGlobal(bytesNeeded);
+            try
             {
-                string trimmed = line.Trim();
-                if (!trimmed.StartsWith("PID", StringComparison.OrdinalIgnoreCase))
+                if (!EnumServicesStatusEx(
+                    manager,
+                    ScEnumProcessInfo,
+                    ServiceWin32,
+                    ServiceStateAll,
+                    buffer,
+                    bytesNeeded,
+                    out _,
+                    out int servicesReturned,
+                    out _,
+                    null))
                 {
-                    continue;
+                    return [];
                 }
 
-                string[] parts = trimmed.Split(':', 2);
-                if (parts.Length == 2 && int.TryParse(parts[1].Trim(), out int pid) && pid > 0)
+                List<ServiceProcessRecord> records = [];
+                int size = Marshal.SizeOf<EnumServiceStatusProcess>();
+                for (int index = 0; index < servicesReturned; index++)
                 {
-                    return pid;
+                    nint item = nint.Add(buffer, index * size);
+                    EnumServiceStatusProcess status = Marshal.PtrToStructure<EnumServiceStatusProcess>(item);
+                    string serviceName = Marshal.PtrToStringUni(status.ServiceName) ?? string.Empty;
+                    string displayName = Marshal.PtrToStringUni(status.DisplayName) ?? string.Empty;
+                    records.Add(new ServiceProcessRecord(serviceName, displayName, unchecked((int)status.Status.ProcessId)));
                 }
+
+                return records;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
             }
         }
-        catch
+        finally
         {
+            CloseServiceHandle(manager);
         }
-
-        return null;
-    }
-
-    private static int CountServicesForPid(int processId)
-    {
-        int count = 0;
-        foreach (ServiceController service in ServiceController.GetServices())
-        {
-            using (service)
-            {
-                if (TryGetServicePid(service.ServiceName) == processId)
-                {
-                    count++;
-                }
-            }
-        }
-
-        return count;
     }
 
     private static string? TryGetRegistryValue(string serviceName, string valueName)
@@ -225,4 +235,52 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
     {
         try { return process.PriorityClass.ToString(); } catch { return null; }
     }
+
+    private sealed record ServiceProcessRecord(string ServiceName, string DisplayName, int ProcessId);
+
+    private const int ScManagerEnumerateService = 0x0004;
+    private const int ScEnumProcessInfo = 0;
+    private const int ServiceWin32 = 0x00000030;
+    private const int ServiceStateAll = 0x00000003;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct EnumServiceStatusProcess
+    {
+        public nint ServiceName;
+        public nint DisplayName;
+        public ServiceStatusProcess Status;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ServiceStatusProcess
+    {
+        public uint ServiceType;
+        public uint CurrentState;
+        public uint ControlsAccepted;
+        public uint Win32ExitCode;
+        public uint ServiceSpecificExitCode;
+        public uint CheckPoint;
+        public uint WaitHint;
+        public uint ProcessId;
+        public uint ServiceFlags;
+    }
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern nint OpenSCManager(string? machineName, string? databaseName, int desiredAccess);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool CloseServiceHandle(nint handle);
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool EnumServicesStatusEx(
+        nint serviceManager,
+        int infoLevel,
+        int serviceType,
+        int serviceState,
+        nint services,
+        int bufferSize,
+        out int bytesNeeded,
+        out int servicesReturned,
+        out int resumeHandle,
+        string? groupName);
 }

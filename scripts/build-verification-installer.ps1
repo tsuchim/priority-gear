@@ -3,10 +3,21 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $ArtifactsRoot = Join-Path $RepoRoot "artifacts\setup-v0.2"
 $PublishRoot = Join-Path $ArtifactsRoot "publish"
-$SetupRoot = Join-Path $ArtifactsRoot "PriorityGear-v0.2-system-mode-verification"
+$DefaultSetupRoot = Join-Path $ArtifactsRoot "PriorityGear-v0.2-system-mode-verification"
+$SetupRoot = $DefaultSetupRoot
 $PayloadRoot = Join-Path $SetupRoot "payload"
 
-Remove-Item -Recurse -Force $ArtifactsRoot -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force $PublishRoot -ErrorAction SilentlyContinue
+if (Test-Path $DefaultSetupRoot) {
+    Remove-Item -Recurse -Force $DefaultSetupRoot -ErrorAction SilentlyContinue
+    if (Test-Path $DefaultSetupRoot) {
+        $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $SetupRoot = Join-Path $ArtifactsRoot "PriorityGear-v0.2-system-mode-verification-$stamp"
+        $PayloadRoot = Join-Path $SetupRoot "payload"
+        Write-Warning "Default setup artifact directory is locked. Writing side-by-side artifact: $SetupRoot"
+    }
+}
+
 New-Item -ItemType Directory -Path $PayloadRoot | Out-Null
 
 function Publish-Project {

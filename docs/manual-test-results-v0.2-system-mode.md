@@ -461,6 +461,7 @@ Follow-up hardening after this pass:
 
 - monitor status now prunes stale deleted-rule and exited-process entries
 - monitor status fields are treated as current-scan summaries
+- service discovery now uses SCM `EnumServicesStatusEx` to obtain service PIDs in one call instead of running `sc.exe queryex` for every service
 - targeted service discovery avoids full process probing for every service process
 - verification setup adds a shared-host dry-run/reject safety check without mutating real shared hosts
 

@@ -35,6 +35,7 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Targeted service/PID discovery and truncation metadata for bounded service-process responses.
 - Current-scan-only monitor runtime summaries with stale deleted-rule/process entries pruned.
 - Shared-host dry-run/reject verification without mutating real shared hosts.
+- Faster service discovery using SCM `EnumServicesStatusEx` instead of repeated `sc.exe queryex` calls.
 
 ## Not Planned for v0.2
 

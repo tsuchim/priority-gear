@@ -61,6 +61,6 @@ setup は `%ProgramFiles%\PriorityGear` に検証用 payload を配置し、Loca
 
 v0.2 検証では、対話ユーザー側の TestTarget、machine-rule monitor path、一時的な LocalSystem-owned `PriorityGear.TestTarget.Service`、targeted service discovery、その安全な temporary service への service-name machine rule が成功済みです。
 
-`devel` には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。保守的な service-process discovery と service-name rule も入りましたが、shared-host safety gate 付きです。任意の `svchost.exe` 制御はまだ主張しません。
+`devel` には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。SCM API ベースの service-process discovery と service-name rule も入りましたが、shared-host safety gate 付きです。任意の `svchost.exe` 制御はまだ主張しません。
 
 ライセンスは MIT です。
