@@ -108,6 +108,7 @@ internal static class Program
             ServiceResponse status = await SendStatusAsync(log);
             if (!status.Succeeded)
             {
+                AppendServiceDiagnostics(plan, log);
                 throw new InvalidOperationException($"Status pipe failed: {status.Message}");
             }
 
@@ -231,12 +232,25 @@ internal static class Program
         private static async Task<ServiceResponse> SendStatusAsync(VerificationLog log)
         {
             log.Section("Status pipe");
-            ServiceResponse status = await PipeClient.SendAsync(
-                ServiceContractConstants.StatusPipeName,
-                new ServiceRequest { Kind = ServiceCommandKind.GetServiceStatus },
-                CancellationToken.None);
-            log.Info(JsonSerializer.Serialize(status, JsonOptions));
-            return status;
+            ServiceResponse last = new() { Succeeded = false, Message = "Status pipe was not attempted." };
+            for (int attempt = 1; attempt <= 20; attempt++)
+            {
+                last = await PipeClient.SendAsync(
+                    ServiceContractConstants.StatusPipeName,
+                    new ServiceRequest { Kind = ServiceCommandKind.GetServiceStatus },
+                    CancellationToken.None);
+                log.Info($"Status pipe attempt {attempt}: Succeeded={last.Succeeded}; Message={last.Message}");
+                if (last.Succeeded)
+                {
+                    log.Info(JsonSerializer.Serialize(last, JsonOptions));
+                    return last;
+                }
+
+                await Task.Delay(500);
+            }
+
+            log.Info(JsonSerializer.Serialize(last, JsonOptions));
+            return last;
         }
 
         private static async Task<ServiceResponse> SendAdminAsync(ServiceRequest request, VerificationLog log, string title)
@@ -418,6 +432,62 @@ internal static class Program
         private static bool ServiceExists(string serviceName)
         {
             return ServiceController.GetServices().Any(service => string.Equals(service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static void AppendServiceDiagnostics(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Failure diagnostics");
+            try
+            {
+                if (ServiceExists(plan.ServiceName))
+                {
+                    using ServiceController controller = new(plan.ServiceName);
+                    controller.Refresh();
+                    log.Info($"Service status on failure: {controller.Status}");
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Info($"Could not read service status on failure: {ex.Message}");
+            }
+
+            try
+            {
+                string keyPath = $@"SYSTEM\CurrentControlSet\Services\{plan.ServiceName}";
+                using Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(keyPath);
+                log.Info($"Service binary path on failure: {Convert.ToString(key?.GetValue("ImagePath")) ?? "<missing>"}");
+                log.Info($"Service account on failure: {Convert.ToString(key?.GetValue("ObjectName")) ?? "<missing>"}");
+            }
+            catch (Exception ex)
+            {
+                log.Info($"Could not read service registry on failure: {ex.Message}");
+            }
+
+            string serviceLogPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "PriorityGear",
+                "Logs",
+                "service-current.log");
+            log.Info($"Service log path: {serviceLogPath}");
+            if (!File.Exists(serviceLogPath))
+            {
+                log.Info("Service log file does not exist.");
+                return;
+            }
+
+            try
+            {
+                string[] lines = File.ReadAllLines(serviceLogPath);
+                log.Info("Service log tail:");
+                foreach (string line in lines.TakeLast(80))
+                {
+                    log.Info(line);
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Info($"Could not read service log tail: {ex.Message}");
+            }
         }
 
         private static void RunProcess(string fileName, string arguments, VerificationLog log)

@@ -59,6 +59,18 @@ The setup executable requests elevation, installs payload files under `%ProgramF
 
 This artifact is for local verification only and is not published to GitHub Releases.
 
+## Service Diagnostics
+
+The service writes an independent file log to:
+
+```text
+%ProgramData%\PriorityGear\Logs\service-current.log
+```
+
+The log records startup identity, service mode, `SeDebugPrivilege`, pipe server readiness, pipe connections, command kinds, handler responses, write success, disconnects, and exceptions. Verification setup failures include the tail of this log so pipe failures are diagnosable without Event Viewer.
+
+Pipe IPC uses newline-delimited JSON. Each client writes exactly one single-line request and waits for exactly one single-line response. Pretty-printed JSON is not used on the wire because the server reads one request line.
+
 ## Win32 Priority API
 
 System Mode uses explicit Windows APIs:

@@ -66,4 +66,22 @@ public sealed class VerificationSetupTests
         StringAssert.Contains(content, "STEP: Final verdict");
         StringAssert.Contains(content, "INFO: Final verdict: passed");
     }
+
+    [TestMethod]
+    public void PipeClientClassifiesEmptyResponse()
+    {
+        var response = PipeClient.ClassifyResponseLine(null);
+
+        Assert.IsFalse(response.Succeeded);
+        StringAssert.Contains(response.Message, "EOF");
+    }
+
+    [TestMethod]
+    public void PipeClientClassifiesInvalidJsonResponse()
+    {
+        var response = PipeClient.ClassifyResponseLine("{");
+
+        Assert.IsFalse(response.Succeeded);
+        StringAssert.Contains(response.Message, "Invalid service response JSON");
+    }
 }

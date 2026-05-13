@@ -56,21 +56,27 @@ return response.Succeeded ? 0 : 1;
 
 static async Task<ServiceResponse> SendAsync(string pipeName, ServiceRequest request)
 {
+    JsonSerializerOptions wireOptions = new(JsonSerializerDefaults.Web);
     try
     {
         await using NamedPipeClientStream pipe = new(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         await pipe.ConnectAsync(5000);
         await using StreamWriter writer = new(pipe, leaveOpen: true) { AutoFlush = true };
         using StreamReader reader = new(pipe, leaveOpen: true);
-        await writer.WriteLineAsync(JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        await writer.WriteLineAsync(JsonSerializer.Serialize(request, wireOptions));
+        await writer.FlushAsync();
         string? responseJson = await reader.ReadLineAsync();
         return string.IsNullOrWhiteSpace(responseJson)
-            ? new ServiceResponse { Succeeded = false, Message = "Empty service response." }
-            : JsonSerializer.Deserialize<ServiceResponse>(responseJson, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? new ServiceResponse { Succeeded = false, Message = "Invalid service response." };
+            ? new ServiceResponse { Succeeded = false, Message = "Pipe connected but EOF was received before a response line." }
+            : JsonSerializer.Deserialize<ServiceResponse>(responseJson, wireOptions) ?? new ServiceResponse { Succeeded = false, Message = "Invalid service response." };
+    }
+    catch (JsonException ex)
+    {
+        return new ServiceResponse { Succeeded = false, Message = $"Invalid service response JSON: {ex.Message}" };
     }
     catch (Exception ex) when (ex is IOException or TimeoutException or UnauthorizedAccessException)
     {
-        return new ServiceResponse { Succeeded = false, Message = ex.Message };
+        return new ServiceResponse { Succeeded = false, Message = $"Pipe request failed: {ex.GetType().Name}: {ex.Message}" };
     }
 }
 

@@ -22,4 +22,6 @@ Do not start with critical system processes.
 
 The setup installs the service to `%ProgramFiles%\PriorityGear`, starts it as `LocalSystem`, checks the status pipe, checks the administrator mutation pipe, launches `PriorityGear.TestTarget` without foreground focus, changes its priority through the service path, restores it, validates temporary machine rules, and performs a no-mutation probe for denied/protected classification.
 
+If the setup fails, send back the log shown in the summary window. The setup also collects the service log tail from `%ProgramData%\PriorityGear\Logs\service-current.log` when status pipe readiness fails.
+
 Troubleshooting can still use the developer CLI and service scripts, but the normal manual test path is the setup executable above.

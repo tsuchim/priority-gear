@@ -22,5 +22,6 @@ public static class PipeJsonProtocol
         await using StreamWriter writer = new(pipe, leaveOpen: true) { AutoFlush = true };
         string responseJson = JsonSerializer.Serialize(response, JsonOptions);
         await writer.WriteLineAsync(responseJson.AsMemory(), cancellationToken);
+        await writer.FlushAsync(cancellationToken);
     }
 }

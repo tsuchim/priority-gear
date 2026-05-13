@@ -16,6 +16,9 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Local verification setup artifact that performs the elevated service install and System Mode checks after UAC approval.
 - `PriorityGear.TestTarget`, a harmless non-foreground test process for service-path priority mutation.
 - No-mutation priority access probe for denied/protected classification.
+- Service-side file logging for pipe diagnostics under `%ProgramData%\PriorityGear\Logs`.
+- Hardened newline-delimited JSON pipe protocol with explicit empty/invalid response classification.
+- Status pipe readiness retry in the verification setup.
 
 ## Not Planned for v0.2
 

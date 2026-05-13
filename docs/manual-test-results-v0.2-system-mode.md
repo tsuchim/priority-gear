@@ -2,6 +2,41 @@
 
 Status: verification setup artifact added; elevated setup run still pending.
 
+## First Elevated Verification Attempt
+
+Date: 2026-05-13
+
+The first elevated verification setup run installed and started the LocalSystem service successfully, then failed at the status pipe check.
+
+Observed result:
+
+```text
+Service status: Running
+Service binary path: C:\Program Files\PriorityGear\PriorityGear.Service.exe
+Service account: LocalSystem
+STEP: Status pipe
+"succeeded": false
+"message": "Empty service response."
+FAIL: Status pipe failed: Empty service response.
+```
+
+Interpretation:
+
+- UAC elevation succeeded.
+- Payload installation succeeded.
+- Windows Service creation succeeded.
+- Service startup succeeded.
+- Service account was LocalSystem.
+- Failure was in named pipe request/response handling after service startup.
+
+Fix recorded after this attempt:
+
+- Pipe clients now send single-line newline-delimited JSON on the wire.
+- Empty/invalid pipe responses are classified explicitly.
+- Service-side pipe handlers log each connection, request, response, and exception.
+- Status pipe readiness is retried before failure.
+- Verification setup includes service log tail diagnostics on failure.
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)
@@ -23,8 +58,7 @@ The service host was launched as a hidden normal-user process, not installed as 
 
 ## Not Run Yet
 
-- Elevated verification setup run.
-- LocalSystem account verification from the installed service.
+- Successful elevated verification setup run.
 - Admin-pipe mutation as administrator from the setup.
 - Service-driven priority change against `PriorityGear.TestTarget`.
 - Machine rule validation from `%ProgramData%\PriorityGear\rules.machine.json`.
