@@ -40,6 +40,8 @@ Initial operations:
 - `TestApplyPriority`
 - `ApplyApprovedMachineRule`
 - `ProbePriorityAccess`
+- `DiscoverServiceProcesses`
+- machine-rule add/update/enable/disable/approve/unapprove/delete/reload/scan-now
 
 Normal users may request read-only status. Mutating commands require an administrator caller and, for `ApplyApprovedMachineRule`, an enabled administrator-approved machine rule that matches the target process.
 
@@ -73,7 +75,11 @@ The monitor records last scan time, rule counts, matched process count, bounded 
 
 Machine rule mutation is available only on the administrator pipe. The service refuses to overwrite malformed machine rule JSON during mutation.
 
-Service process discovery is currently conservative process discovery plus priority-access probing. `svchost.exe` shared-host mutation is not enabled by default and requires later explicit shared-host safety work.
+Service process discovery groups running services by host PID and reports service names, display names where available, process name/path where readable, current priority where readable, shared-host status, and priority-access probe status. The current implementation uses .NET service enumeration with conservative `sc.exe queryex` PID lookup; a direct SCM API implementation remains a later hardening target.
+
+Machine rules may target a service by exact `serviceName`. A service-name rule applies only when the service is running, the discovered PID matches the target, and executable/path constraints also pass. If the target PID hosts multiple services, the rule is skipped unless `allowSharedServiceHost=true`. A `dryRunOnly=true` rule reports the target as `DryRun` and does not call `SetPriorityClass`.
+
+Executable-only `svchost.exe` rules are rejected by default. Shared `svchost.exe` hosts require an explicit service-name rule, administrator approval, and explicit shared-host allowance before mutation is considered. This is guarded service-name support, not arbitrary `svchost.exe` control.
 
 ## Service Diagnostics
 

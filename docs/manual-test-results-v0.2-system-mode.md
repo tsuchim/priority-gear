@@ -277,7 +277,62 @@ After this pass, development moved from verification-only commands toward a real
 - status pipe exposes bounded monitor summaries
 - admin pipe exposes rule management, reload, and scan-now commands
 
-## Environment
+## Eighth Elevated Verification Attempt
+
+Date: 2026-05-13
+
+Status: passed.
+
+Environment and install:
+
+- Windows: `Microsoft Windows NT 10.0.26200.0`
+- User: `HP45L\tsuchim`
+- Elevated: `True`
+- Version: `20260513-202550`
+- Version directory: `C:\Program Files\PriorityGear\versions\20260513-202550`
+- Service binary path: `C:\Program Files\PriorityGear\versions\20260513-202550\PriorityGear.Service.exe`
+- SCM configured service account: `LocalSystem`
+- Service process identity: `NT AUTHORITY\SYSTEM`
+
+Successful checks:
+
+- Status pipe: succeeded.
+- `SeDebugPrivilege`: attempted and succeeded.
+- Admin caller: `HP45L\tsuchim`
+- Caller SID: `S-1-5-21-472891707-3728080483-1935464772-1001`
+- Authorization source: `PipeAcl`
+- Normal TestTarget PID `14508`: `Normal -> BelowNormal -> Normal`
+- Machine rule monitor:
+  - approved rule for `PriorityGear.TestTarget.exe` was added
+  - scan completed
+  - loaded rule count: `1`
+  - enabled approved rule count: `1`
+  - matched process count: `1`
+  - apply successes: `1`
+  - monitor target priority after scan: `BelowNormal`
+  - temporary rule deleted after verification
+- LocalSystem TestTarget service `PriorityGear.TestTarget.Service` PID `78732`, account `LocalSystem`: `Normal -> BelowNormal -> Normal`
+- LocalSystem TestTarget service stop/delete: succeeded.
+- PID 4 probe: `AccessDenied`, Win32 error `5`, no mutation attempted.
+- Final verdict: `passed`.
+
+This confirms the real monitor scan path for a safe interactive target and confirms direct service-path mutation for a safe LocalSystem-owned service target. It still does not claim arbitrary Windows service or `svchost.exe` priority control.
+
+## Current Development Follow-Up
+
+After this pass, development added guarded service-process discovery and service-name machine rules:
+
+- service discovery groups running services by host PID
+- shared service hosts are detected
+- service-name rules match only the discovered running service PID
+- shared-host rules are rejected unless `allowSharedServiceHost=true`
+- executable-only `svchost.exe` rules are rejected by default
+- `dryRunOnly=true` reports the target without calling `SetPriorityClass`
+- CLI commands expose service-process discovery and service-name rule creation
+
+These changes require another elevated verification setup run before they are treated as proven on the machine.
+
+## Historical Non-Elevated Smoke Test
 
 - User privilege level: normal user (`IsElevated=false`)
 - Service install: not run
@@ -295,14 +350,6 @@ The service host was launched as a hidden normal-user process, not installed as 
 - Service account in smoke test: `tsuchim`
 - `SeDebugPrivilege`: attempted, failed with `PrivilegeUnavailable`, Win32 error `1300`
 - Non-admin mutation through admin pipe: rejected by pipe access with `Access to the path is denied.`
-
-## Not Run Yet
-
-- Successful elevated verification setup run.
-- Admin-pipe mutation as administrator from the setup.
-- Service-driven priority change against `PriorityGear.TestTarget`.
-- Machine rule validation from `%ProgramData%\PriorityGear\rules.machine.json`.
-- Denied/protected no-mutation probe from the service.
 
 ## Verification Setup
 
@@ -327,4 +374,4 @@ Expected user action:
 
 ## Notes
 
-Do not claim System Mode is working until an elevated test installs the service, verifies LocalSystem execution, and changes a safe process priority through the service path.
+System Mode service-path priority mutation and machine-rule monitor scanning are verified for PriorityGear's safe test targets. Arbitrary Windows service control and `svchost.exe` shared-host mutation are not claimed.

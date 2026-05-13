@@ -9,6 +9,11 @@ if (args.Length >= 1 && string.Equals(args[0], "machine-rules", StringComparison
     return await HandleMachineRulesAsync(args);
 }
 
+if (args.Length >= 1 && string.Equals(args[0], "service-processes", StringComparison.OrdinalIgnoreCase))
+{
+    return await HandleServiceProcessesAsync(args);
+}
+
 if (args.Length < 2 || !string.Equals(args[0], "service", StringComparison.OrdinalIgnoreCase))
 {
     PrintUsage();
@@ -132,11 +137,16 @@ static void PrintUsage()
     Console.Error.WriteLine("  PriorityGear.Cli service probe --pid <pid>");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules list");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules add --name <name> --exe <exeName> --priority BelowNormal --approve");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules add-service --name <name> --service-name <serviceName> --priority BelowNormal --approve [--dry-run] [--allow-shared-service-host]");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules update --id <id> --name <name> --exe <exeName> --priority BelowNormal --approve");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules enable|disable|delete --id <id>");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules approve|unapprove --id <id>");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules reload");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules scan-now");
+    Console.Error.WriteLine("  PriorityGear.Cli service-processes list");
+    Console.Error.WriteLine("  PriorityGear.Cli service-processes show --service-name <name>");
+    Console.Error.WriteLine("  PriorityGear.Cli service-processes show-pid --pid <pid>");
+    Console.Error.WriteLine("  PriorityGear.Cli service-processes probe --service-name <name>");
 }
 
 static ProcessPriorityLevel? TryReadPriorityOption(string[] args, string name)
@@ -177,6 +187,20 @@ static async Task<int> HandleMachineRulesAsync(string[] args)
                 ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase))
             }
         },
+        "add-service" => new ServiceRequest
+        {
+            Kind = ServiceCommandKind.AddMachineRule,
+            MachineRule = new MachinePriorityRule
+            {
+                DisplayName = ReadStringOption(args, "--name"),
+                ServiceName = ReadStringOption(args, "--service-name"),
+                BasePriority = ReadPriorityOption(args, "--priority"),
+                Enabled = true,
+                ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase)),
+                DryRunOnly = args.Any(static arg => string.Equals(arg, "--dry-run", StringComparison.OrdinalIgnoreCase)),
+                AllowSharedServiceHost = args.Any(static arg => string.Equals(arg, "--allow-shared-service-host", StringComparison.OrdinalIgnoreCase))
+            }
+        },
         "update" => new ServiceRequest
         {
             Kind = ServiceCommandKind.UpdateMachineRule,
@@ -206,4 +230,43 @@ static async Task<int> HandleMachineRulesAsync(string[] args)
     ServiceResponse response = await SendAsync(pipeName, request);
     Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
     return response.Succeeded ? 0 : 1;
+}
+
+static async Task<int> HandleServiceProcessesAsync(string[] args)
+{
+    if (args.Length < 2)
+    {
+        PrintUsage();
+        return 2;
+    }
+
+    ServiceResponse response = await SendAsync(ServiceContractConstants.StatusPipeName, new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses });
+    if (!response.Succeeded || response.ServiceProcesses is null)
+    {
+        Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+        return 1;
+    }
+
+    IEnumerable<ServiceProcessInfoDto> processes = response.ServiceProcesses;
+    switch (args[1].ToLowerInvariant())
+    {
+        case "show":
+        case "probe":
+            string serviceName = ReadStringOption(args, "--service-name");
+            processes = processes.Where(process => process.ServiceNames.Any(name => string.Equals(name, serviceName, StringComparison.OrdinalIgnoreCase)));
+            break;
+        case "show-pid":
+            int pid = ReadIntOption(args, "--pid");
+            processes = processes.Where(process => process.ProcessId == pid);
+            break;
+        case "list":
+            break;
+        default:
+            PrintUsage();
+            return 2;
+    }
+
+    response.ServiceProcesses = processes.ToList();
+    Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+    return 0;
 }

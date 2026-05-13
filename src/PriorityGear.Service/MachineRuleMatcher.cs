@@ -7,7 +7,16 @@ public static class MachineRuleMatcher
 {
     public static bool IsRuntimeEligible(MachinePriorityRule rule)
     {
-        return rule.Enabled && rule.ApprovedByAdmin && !rule.DryRunOnly;
+        return rule.Enabled &&
+            rule.ApprovedByAdmin &&
+            !rule.DryRunOnly &&
+            !IsUnsafeSvchostExecutableOnlyRule(rule);
+    }
+
+    public static bool IsUnsafeSvchostExecutableOnlyRule(MachinePriorityRule rule)
+    {
+        return string.IsNullOrWhiteSpace(rule.ServiceName) &&
+            string.Equals(rule.ExecutableName, "svchost.exe", StringComparison.OrdinalIgnoreCase);
     }
 
     public static bool Matches(MachinePriorityRule rule, Process process, out string failure)

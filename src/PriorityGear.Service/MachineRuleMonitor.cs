@@ -7,6 +7,7 @@ namespace PriorityGear.Service;
 public sealed class MachineRuleMonitor(
     MachineRuleStore store,
     Win32PriorityApplier priorityApplier,
+    ServiceProcessDiscovery serviceProcessDiscovery,
     ServiceFileLog log)
 {
     private readonly Dictionary<string, ProcessRuntimeSummaryDto> _processes = [];
@@ -44,12 +45,17 @@ public sealed class MachineRuleMonitor(
             return Task.CompletedTask;
         }
 
+        foreach (MachinePriorityRule serviceRule in _rules.Where(rule => rule.Enabled && rule.ApprovedByAdmin && !string.IsNullOrWhiteSpace(rule.ServiceName)))
+        {
+            ApplyServiceRule(serviceRule);
+        }
+
         foreach (Process process in Process.GetProcesses())
         {
             cancellationToken.ThrowIfCancellationRequested();
             using (process)
             {
-                foreach (MachinePriorityRule rule in _rules.Where(MachineRuleMatcher.IsRuntimeEligible))
+                foreach (MachinePriorityRule rule in _rules.Where(rule => MachineRuleMatcher.IsRuntimeEligible(rule) && string.IsNullOrWhiteSpace(rule.ServiceName)))
                 {
                     if (!MachineRuleMatcher.Matches(rule, process, out _))
                     {
@@ -95,13 +101,15 @@ public sealed class MachineRuleMonitor(
     private void ApplyRule(MachinePriorityRule rule, Process process)
     {
         string key = $"{process.Id}:{rule.Id}:{rule.BasePriority}";
-        if (_processes.TryGetValue(key, out ProcessRuntimeSummaryDto? existing) &&
+        if (!rule.DryRunOnly && _processes.TryGetValue(key, out ProcessRuntimeSummaryDto? existing) &&
             string.Equals(existing.LastResult, "Success", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
-        Win32PriorityResult result = priorityApplier.SetPriority(process.Id, rule.BasePriority);
+        Win32PriorityResult result = rule.DryRunOnly
+            ? new Win32PriorityResult(true, Win32PriorityStatus.Success, rule.BasePriority, null, "DryRun")
+            : priorityApplier.SetPriority(process.Id, rule.BasePriority);
         if (result.Succeeded)
         {
             _successes++;
@@ -117,8 +125,50 @@ public sealed class MachineRuleMonitor(
             ExecutableName = process.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process.ProcessName : process.ProcessName + ".exe",
             RuleId = rule.Id,
             DesiredPriority = rule.BasePriority.ToString(),
-            LastResult = result.Succeeded ? "Success" : $"{result.Status}: {result.Message}",
+            LastResult = rule.DryRunOnly ? "DryRun" : result.Succeeded ? "Success" : $"{result.Status}: {result.Message}",
             LastApplyTime = DateTimeOffset.Now
         };
+    }
+
+    private void ApplyServiceRule(MachinePriorityRule rule)
+    {
+        ServiceProcessInfoDto? serviceProcess = serviceProcessDiscovery.FindByServiceName(rule.ServiceName!);
+        if (serviceProcess is null)
+        {
+            return;
+        }
+
+        if (serviceProcess.SharedServiceHost && !rule.AllowSharedServiceHost)
+        {
+            _failures++;
+            _processes[$"{serviceProcess.ProcessId}:{rule.Id}:shared"] = new ProcessRuntimeSummaryDto
+            {
+                ProcessId = serviceProcess.ProcessId,
+                ExecutableName = serviceProcess.ExecutableName,
+                RuleId = rule.Id,
+                DesiredPriority = rule.BasePriority.ToString(),
+                LastResult = "SharedHostRejected",
+                LastApplyTime = DateTimeOffset.Now
+            };
+            return;
+        }
+
+        if (string.Equals(serviceProcess.ExecutableName, "svchost.exe", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(rule.ServiceName))
+        {
+            return;
+        }
+
+        try
+        {
+            using Process process = Process.GetProcessById(serviceProcess.ProcessId);
+            if (MachineRuleMatcher.Matches(rule, process, out _))
+            {
+                ApplyRule(rule, process);
+            }
+        }
+        catch
+        {
+        }
     }
 }

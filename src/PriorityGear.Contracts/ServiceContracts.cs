@@ -55,6 +55,8 @@ public sealed class ServiceResponse
     public ServiceAuthorizationDto? Authorization { get; set; }
 
     public List<ServiceProcessInfoDto>? ServiceProcesses { get; set; }
+
+    public ServiceProcessDiscoveryStatusDto? ServiceProcessDiscovery { get; set; }
 }
 
 public sealed class ServiceStatusDto
@@ -74,6 +76,8 @@ public sealed class ServiceStatusDto
     public string AuthorizationMode { get; set; } = "AdministratorsOnlyForMutation";
 
     public MachineRuleMonitorStatusDto MachineRuleMonitor { get; set; } = new();
+
+    public ServiceProcessDiscoveryStatusDto ServiceProcessDiscovery { get; set; } = new();
 }
 
 public sealed class MachineRuleMonitorStatusDto
@@ -177,4 +181,17 @@ public sealed class ServiceProcessInfoDto
     public string PriorityAccessStatus { get; set; } = string.Empty;
 
     public string? CurrentPriority { get; set; }
+}
+
+public sealed class ServiceProcessDiscoveryStatusDto
+{
+    public bool Available { get; set; }
+
+    public int RunningServiceCount { get; set; }
+
+    public int ServiceHostProcessCount { get; set; }
+
+    public int SharedHostProcessCount { get; set; }
+
+    public string Message { get; set; } = string.Empty;
 }

@@ -28,6 +28,9 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Admin pipe machine-rule management commands: add, update, enable, disable, approve, unapprove, delete, reload, and scan-now.
 - Status pipe machine-rule monitor summary.
 - Conservative service-process discovery and priority-access probe without default `svchost.exe` mutation.
+- Service-name machine rules with shared-host safety gates.
+- Dry-run machine rules for discovery and target validation without mutation.
+- CLI service-process discovery commands.
 
 ## Not Planned for v0.2
 
@@ -35,7 +38,7 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - winget.
 - Code signing.
 - Polished installer UX.
-- `svchost.exe` service-name matching.
+- Arbitrary `svchost.exe` mutation or shared-host changes without explicit service-name safety gates.
 - CPU affinity, I/O priority, or EcoQoS.
 - Realtime priority UI.
 - Kernel driver.

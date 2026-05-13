@@ -385,6 +385,17 @@ internal static class Program
             return response;
         }
 
+        private static async Task<ServiceResponse> SendStatusRequestAsync(ServiceRequest request, VerificationLog log, string title)
+        {
+            log.Section(title);
+            ServiceResponse response = await PipeClient.SendAsync(
+                ServiceContractConstants.StatusPipeName,
+                request,
+                CancellationToken.None);
+            log.Info(JsonSerializer.Serialize(response, JsonOptions));
+            return response;
+        }
+
         private static async Task VerifyPriorityMutationAsync(VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Priority mutation using TestTarget");
@@ -623,6 +634,28 @@ internal static class Program
                 log.Info($"LocalSystem TestTarget PID: {target.Id}");
                 log.Info($"LocalSystem TestTarget original priority: {target.PriorityClass}");
 
+                log.Section("Service process discovery verification");
+                ServiceResponse discovery = await SendStatusRequestAsync(new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses }, log, "Service process discovery");
+                if (!discovery.Succeeded || discovery.ServiceProcesses is null)
+                {
+                    throw new InvalidOperationException($"Service process discovery failed: {discovery.Message}");
+                }
+
+                ServiceProcessInfoDto? discoveredTarget = discovery.ServiceProcesses.FirstOrDefault(process =>
+                    process.ProcessId == target.Id &&
+                    process.ServiceNames.Any(name => string.Equals(name, plan.TestTargetServiceName, StringComparison.OrdinalIgnoreCase)));
+                if (discoveredTarget is null)
+                {
+                    throw new InvalidOperationException("LocalSystem TestTarget service was not discovered with the expected PID.");
+                }
+
+                log.Info($"Discovered TestTarget service PID: {discoveredTarget.ProcessId}");
+                log.Info($"Discovered TestTarget shared host: {discoveredTarget.SharedServiceHost}");
+                if (discoveredTarget.SharedServiceHost)
+                {
+                    throw new InvalidOperationException("LocalSystem TestTarget service unexpectedly shares a service host.");
+                }
+
                 ServiceResponse apply = await SendAdminAsync(new ServiceRequest
                 {
                     Kind = ServiceCommandKind.TestApplyPriority,
@@ -657,6 +690,47 @@ internal static class Program
                 if (target.PriorityClass != ProcessPriorityClass.Normal)
                 {
                     throw new InvalidOperationException($"LocalSystem TestTarget priority did not restore to Normal: {target.PriorityClass}");
+                }
+
+                Guid serviceRuleId = Guid.NewGuid();
+                ServiceResponse addRule = await SendAdminAsync(new ServiceRequest
+                {
+                    Kind = ServiceCommandKind.AddMachineRule,
+                    MachineRule = new MachinePriorityRule
+                    {
+                        Id = serviceRuleId,
+                        DisplayName = "Verification service-name monitor rule",
+                        Enabled = true,
+                        ApprovedByAdmin = true,
+                        ServiceName = plan.TestTargetServiceName,
+                        BasePriority = ProcessPriorityLevel.BelowNormal
+                    }
+                }, log, "Service-name machine rule add");
+                if (!addRule.Succeeded)
+                {
+                    throw new InvalidOperationException($"Service-name rule add failed: {addRule.Message}");
+                }
+
+                try
+                {
+                    ServiceResponse scan = await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.ScanMachineRulesNow }, log, "Service-name machine rule scan now");
+                    if (!scan.Succeeded)
+                    {
+                        throw new InvalidOperationException($"Service-name scan failed: {scan.Message}");
+                    }
+
+                    target.Refresh();
+                    log.Info($"LocalSystem TestTarget priority after service-name scan: {target.PriorityClass}");
+                    if (target.PriorityClass != ProcessPriorityClass.BelowNormal)
+                    {
+                        throw new InvalidOperationException($"Service-name monitor did not apply BelowNormal: {target.PriorityClass}");
+                    }
+
+                    await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.TestApplyPriority, ProcessId = target.Id, Priority = ProcessPriorityLevel.Normal }, log, "Service-name machine rule restore");
+                }
+                finally
+                {
+                    await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.DeleteMachineRule, RuleId = serviceRuleId }, log, "Service-name machine rule delete");
                 }
             }
             finally

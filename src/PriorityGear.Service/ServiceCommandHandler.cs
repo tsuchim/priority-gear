@@ -9,6 +9,7 @@ public sealed class ServiceCommandHandler(
     Win32PriorityApplier priorityApplier,
     MachineRuleStore machineRuleStore,
     MachineRuleMonitor machineRuleMonitor,
+    ServiceProcessDiscovery serviceProcessDiscovery,
     Func<PrivilegeEnableResult> privilegeProvider)
 {
     public ServiceResponse HandleStatus(ServiceRequest request)
@@ -17,6 +18,7 @@ public sealed class ServiceCommandHandler(
         {
             ServiceCommandKind.GetServiceStatus => StatusResponse(),
             ServiceCommandKind.GetMachineRules => RulesResponse(),
+            ServiceCommandKind.DiscoverServiceProcesses => DiscoverServiceProcessesResponse(),
             _ => new ServiceResponse
             {
                 Succeeded = false,
@@ -84,7 +86,8 @@ public sealed class ServiceCommandHandler(
                     Status = privilege.Status.ToString(),
                     Win32Error = privilege.Win32Error
                 },
-                MachineRuleMonitor = machineRuleMonitor.GetStatus()
+                MachineRuleMonitor = machineRuleMonitor.GetStatus(),
+                ServiceProcessDiscovery = serviceProcessDiscovery.GetStatus()
             }
         };
     }
@@ -153,20 +156,7 @@ public sealed class ServiceCommandHandler(
 
     private ServiceResponse DiscoverServiceProcessesResponse()
     {
-        List<ServiceProcessInfoDto> processes = Process.GetProcesses().Take(100).Select(process =>
-        {
-            using (process)
-            {
-                return new ServiceProcessInfoDto
-                {
-                    ProcessId = process.Id,
-                    ExecutableName = process.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process.ProcessName : process.ProcessName + ".exe",
-                    Path = TryGetPath(process),
-                    CurrentPriority = TryGetPriority(process),
-                    PriorityAccessStatus = priorityApplier.ProbeSetPriorityAccess(process.Id).Status.ToString()
-                };
-            }
-        }).ToList();
+        List<ServiceProcessInfoDto> processes = serviceProcessDiscovery.Discover().Take(100).ToList();
         return new ServiceResponse { Succeeded = true, Message = "Service process discovery completed.", ServiceProcesses = processes };
     }
 
@@ -303,6 +293,28 @@ public sealed class ServiceCommandHandler(
 
         try
         {
+            if (!string.IsNullOrWhiteSpace(rule.ServiceName))
+            {
+                ServiceProcessInfoDto? serviceProcess = serviceProcessDiscovery.FindByServiceName(rule.ServiceName);
+                if (serviceProcess is null)
+                {
+                    failure = "Machine rule service is not running or was not discovered.";
+                    return false;
+                }
+
+                if (serviceProcess.ProcessId != request.ProcessId.Value)
+                {
+                    failure = "Target process does not host the requested service.";
+                    return false;
+                }
+
+                if (serviceProcess.SharedServiceHost && !rule.AllowSharedServiceHost)
+                {
+                    failure = "Target service shares a host process and the rule does not allow shared service hosts.";
+                    return false;
+                }
+            }
+
             using Process process = Process.GetProcessById(request.ProcessId.Value);
             return MachineRuleMatcher.Matches(rule, process, out failure);
         }

@@ -150,7 +150,8 @@ public sealed class ServiceCommandHandlerTests
         ServiceCommandHandler handler = new(
             new Win32PriorityApplier(),
             store,
-            new MachineRuleMonitor(store, new Win32PriorityApplier(), log),
+            new MachineRuleMonitor(store, new Win32PriorityApplier(), new ServiceProcessDiscovery(new Win32PriorityApplier()), log),
+            new ServiceProcessDiscovery(new Win32PriorityApplier()),
             () => new PrivilegeEnableResult(true, true, Win32PriorityStatus.Success, null, "OK"));
 
         ServiceResponse response = handler.HandleAdmin(
@@ -172,6 +173,26 @@ public sealed class ServiceCommandHandlerTests
         Assert.False(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule { Enabled = false, ApprovedByAdmin = true }));
         Assert.False(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule { Enabled = true, ApprovedByAdmin = false }));
         Assert.True(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule { Enabled = true, ApprovedByAdmin = true }));
+    }
+
+    [Fact]
+    public void MachineRuleMatcherRejectsSvchostExecutableOnlyRulesByDefault()
+    {
+        Assert.False(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule
+        {
+            Enabled = true,
+            ApprovedByAdmin = true,
+            ExecutableName = "svchost.exe"
+        }));
+
+        Assert.True(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule
+        {
+            Enabled = true,
+            ApprovedByAdmin = true,
+            ExecutableName = "svchost.exe",
+            ServiceName = "example-service",
+            AllowSharedServiceHost = true
+        }));
     }
 
     [Fact]
@@ -209,7 +230,8 @@ public sealed class ServiceCommandHandlerTests
         return new ServiceCommandHandler(
             new Win32PriorityApplier(),
             store,
-            new MachineRuleMonitor(store, new Win32PriorityApplier(), log),
+            new MachineRuleMonitor(store, new Win32PriorityApplier(), new ServiceProcessDiscovery(new Win32PriorityApplier()), log),
+            new ServiceProcessDiscovery(new Win32PriorityApplier()),
             () => new PrivilegeEnableResult(true, false, Win32PriorityStatus.PrivilegeUnavailable, 1300, "Unavailable"));
     }
 }
