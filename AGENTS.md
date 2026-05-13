@@ -19,6 +19,15 @@
 - Run tests before commit.
 - Report changed files, tests run, and remaining risks.
 
+## Pull Request Workflow
+
+- When a pull request is opened, wait for GitHub Copilot code review before merging. The usual wait time is about 10 minutes unless the user instructs otherwise.
+- Inspect GitHub Copilot review comments one by one. For each comment, decide whether to accept it, reject it with a clear reason, or make another appropriate change.
+- Resolve review comments after they have been addressed or explicitly judged non-blocking.
+- Confirm GitHub Actions, CI, and other required checks are passing before merge.
+- If review comments and checks are clear, normally merge pull requests into `main` using a regular merge commit. Keep `devel` aligned with `main` afterward using a normal merge, not history rewriting.
+- Do not squash, rebase, force-push, or rewrite protected branch history unless the user explicitly asks for that specific operation.
+
 ## Protected Surfaces
 
 Treat AGENTS files, runtime configuration, agent definitions, instructions, hooks, and skills as protected surfaces. Prefer structural enforcement and explicit approval over prompt-only warnings where available.

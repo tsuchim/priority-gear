@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PriorityGear.Core\PriorityGear.Core.csproj" />
     <ProjectReference Include="..\PriorityGear.Windows\PriorityGear.Windows.csproj" />
+    <ProjectReference Include="..\PriorityGear.Contracts\PriorityGear.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

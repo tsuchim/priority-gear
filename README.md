@@ -33,6 +33,34 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
+## v0.2 System Mode Preview
+
+System Mode is under development on `devel` as a release-candidate preview. The local verification setup is not a production installer and is not published as a release artifact.
+
+Build it with:
+
+```powershell
+.\scripts\build-verification-installer.ps1
+```
+
+Then double-click:
+
+```text
+artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.VerificationSetup.exe
+```
+
+Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\PriorityGear`, verifies the status pipe and administrator mutation pipe, changes and restores priority for `PriorityGear.TestTarget`, validates temporary machine rules, verifies the machine-rule monitor scan path, checks service-process discovery, and writes a log under `%ProgramData%\PriorityGear\Logs`.
+
+The v0.2 verification has confirmed the main service path for an interactive test target, the machine-rule monitor path, a temporary LocalSystem-owned `PriorityGear.TestTarget.Service`, targeted service discovery, and a service-name machine rule for that safe temporary service. After SCM API discovery, the full verification completes in about 8 seconds on the tested Windows 11 machine.
+
+The `devel` branch now contains the first service-side machine-rule monitor. Machine rules live under `%ProgramData%\PriorityGear\rules.machine.json`, are applied only when enabled and administrator-approved, and can be managed through the admin pipe/CLI. It also has SCM-based service-process discovery and service-name rules with shared-host safety gates. Shared-host `svchost.exe` dry-run/reject behavior is verified; arbitrary `svchost.exe` control is not claimed.
+
+v0.2 is in scope for LocalSystem service install/update verification, status/admin named pipes, service-side priority mutation, machine-rule monitoring, service-process discovery, service-name machine rules, CLI administration, and minimal GUI System Mode status visibility.
+
+v0.2 is out of scope for Store/winget distribution, signing, production MSI/MSIX packaging, GUI machine-rule editing, System Mode active-window priority switching, arbitrary shared-host mutation, CPU affinity, I/O priority, EcoQoS, Realtime priority UI, drivers, telemetry, network features, and updaters.
+
+Post-verification state: `PriorityGear.Service` may remain installed/running, temporary `PriorityGear.TestTarget.Service` must be removed, temporary machine rules are deleted, `%ProgramData%\PriorityGear\Logs` remains, and `%ProgramData%\PriorityGear\rules.machine.json` is preserved or restored. Old version directory cleanup is best-effort.
+
 ## Portable Publish
 
 Framework-dependent:
@@ -74,9 +102,17 @@ PriorityGear v0.1 does not include:
 
 User Mode only controls processes the current user can control. PriorityGear never bypasses Windows security boundaries and reports failures explicitly when Windows denies access or a process is unsupported.
 
-System Mode is planned for a later milestone and will require administrator-approved service installation.
+System Mode requires administrator-approved service installation.
 
 PriorityGear has no telemetry, no network access, and no updater.
+
+## Risk Notice
+
+PriorityGear changes process priority and may affect system responsiveness or stability.
+It is provided as-is, without warranty. Use it at your own risk.
+System Mode, when enabled in a later version, is an administrator feature and may affect system services.
+PriorityGear does not bypass Windows security boundaries and does not target protected processes.
+System Mode development uses separate local named pipes for read-only status and administrator-only mutation. Mutating commands are denied when caller identity cannot be verified.
 
 ## License
 

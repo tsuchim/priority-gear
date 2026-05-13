@@ -24,4 +24,14 @@ public sealed class WindowsPriorityMapperTests
             Enum.GetNames<ProcessPriorityLevel>(),
             static name => string.Equals(name, "Realtime", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Theory]
+    [InlineData(5, Win32PriorityStatus.AccessDenied)]
+    [InlineData(6, Win32PriorityStatus.ProcessExited)]
+    [InlineData(87, Win32PriorityStatus.InvalidParameter)]
+    [InlineData(1300, Win32PriorityStatus.PrivilegeUnavailable)]
+    public void Win32ErrorMapper_MapsKnownErrors(int error, Win32PriorityStatus expected)
+    {
+        Assert.Equal(expected, Win32ErrorMapper.Map(error));
+    }
 }
