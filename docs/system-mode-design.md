@@ -65,6 +65,16 @@ The verification setup includes a safe LocalSystem-owned target check. It tempor
 
 The setup executes `sc.exe` through structured `ProcessStartInfo.ArgumentList` entries rather than one manually quoted command string. This is required for service binary paths containing spaces and additional arguments.
 
+## Machine Rule Runtime
+
+The service includes a conservative machine-rule monitor. It loads `%ProgramData%\PriorityGear\rules.machine.json`, scans processes every 30 seconds, and applies base priority only for enabled administrator-approved rules. Active foreground priority remains a User Mode concept and is not implemented in System Mode.
+
+The monitor records last scan time, rule counts, matched process count, bounded per-rule summaries, and bounded per-process apply results. Status pipe responses include these summaries without dumping unbounded process lists.
+
+Machine rule mutation is available only on the administrator pipe. The service refuses to overwrite malformed machine rule JSON during mutation.
+
+Service process discovery is currently conservative process discovery plus priority-access probing. `svchost.exe` shared-host mutation is not enabled by default and requires later explicit shared-host safety work.
+
 ## Service Diagnostics
 
 The service writes an independent file log to:

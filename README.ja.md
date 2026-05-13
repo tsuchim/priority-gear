@@ -61,4 +61,6 @@ setup は `%ProgramFiles%\PriorityGear` に検証用 payload を配置し、Loca
 
 v0.2 検証では、対話ユーザー側の TestTarget に対する service 経由の優先度変更は成功済みです。次の検証 setup では、一時的な LocalSystem-owned `PriorityGear.TestTarget.Service` も作成し、安全な service-owned process に対して同じ経路を確認します。
 
+`devel` には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。`svchost.exe` の shared-host 対応はまだ主張しません。
+
 ライセンスは MIT です。

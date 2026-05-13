@@ -14,6 +14,16 @@ public sealed class MachinePriorityRule
 
     public string? FullPath { get; set; }
 
+    public string? PathSuffix { get; set; }
+
+    public string? Notes { get; set; }
+
+    public string? ServiceName { get; set; }
+
+    public bool AllowSharedServiceHost { get; set; }
+
+    public bool DryRunOnly { get; set; }
+
     public ProcessPriorityLevel BasePriority { get; set; } = ProcessPriorityLevel.Normal;
 
     public ProcessPriorityLevel? ActivePriority { get; set; }

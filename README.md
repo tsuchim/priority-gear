@@ -53,6 +53,8 @@ Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\Prio
 
 The v0.2 verification has confirmed the main service path for an interactive test target. The next verification setup also creates a temporary LocalSystem-owned `PriorityGear.TestTarget.Service` to prove the same path against a safe service-owned process.
 
+The `devel` branch now contains the first service-side machine-rule monitor. Machine rules live under `%ProgramData%\PriorityGear\rules.machine.json`, are applied only when enabled and administrator-approved, and can be managed through the admin pipe/CLI. `svchost.exe` shared-host support is not claimed yet.
+
 ## Portable Publish
 
 Framework-dependent:

@@ -24,6 +24,10 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Admin pipe authorization now runs after one bounded request line is read, matching Windows named pipe impersonation requirements.
 - Verification setup now includes a temporary LocalSystem-owned `PriorityGear.TestTarget.Service` priority mutation check.
 - Verification setup uses structured `sc.exe` arguments for service create/config/delete commands to avoid nested quote failures.
+- Service-side machine-rule monitor with 30-second scanning for enabled administrator-approved rules.
+- Admin pipe machine-rule management commands: add, update, enable, disable, approve, unapprove, delete, reload, and scan-now.
+- Status pipe machine-rule monitor summary.
+- Conservative service-process discovery and priority-access probe without default `svchost.exe` mutation.
 
 ## Not Planned for v0.2
 

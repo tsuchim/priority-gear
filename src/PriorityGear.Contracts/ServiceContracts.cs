@@ -14,7 +14,17 @@ public enum ServiceCommandKind
     GetMachineRules,
     TestApplyPriority,
     ApplyApprovedMachineRule,
-    ProbePriorityAccess
+    ProbePriorityAccess,
+    AddMachineRule,
+    UpdateMachineRule,
+    EnableMachineRule,
+    DisableMachineRule,
+    ApproveMachineRule,
+    UnapproveMachineRule,
+    DeleteMachineRule,
+    ReloadMachineRules,
+    ScanMachineRulesNow,
+    DiscoverServiceProcesses
 }
 
 public sealed class ServiceRequest
@@ -26,6 +36,8 @@ public sealed class ServiceRequest
     public ProcessPriorityLevel? Priority { get; set; }
 
     public Guid? RuleId { get; set; }
+
+    public MachinePriorityRule? MachineRule { get; set; }
 }
 
 public sealed class ServiceResponse
@@ -41,6 +53,8 @@ public sealed class ServiceResponse
     public PriorityApplyDto? PriorityApply { get; set; }
 
     public ServiceAuthorizationDto? Authorization { get; set; }
+
+    public List<ServiceProcessInfoDto>? ServiceProcesses { get; set; }
 }
 
 public sealed class ServiceStatusDto
@@ -49,9 +63,64 @@ public sealed class ServiceStatusDto
 
     public string ServiceAccount { get; set; } = string.Empty;
 
+    public string ConfiguredServiceAccount { get; set; } = string.Empty;
+
+    public string ProcessIdentity { get; set; } = string.Empty;
+
+    public string NetworkIdentity { get; set; } = string.Empty;
+
     public PrivilegeStatusDto SeDebugPrivilege { get; set; } = new();
 
     public string AuthorizationMode { get; set; } = "AdministratorsOnlyForMutation";
+
+    public MachineRuleMonitorStatusDto MachineRuleMonitor { get; set; } = new();
+}
+
+public sealed class MachineRuleMonitorStatusDto
+{
+    public bool MonitorRunning { get; set; }
+
+    public DateTimeOffset? LastScanTime { get; set; }
+
+    public DateTimeOffset? NextScanEstimate { get; set; }
+
+    public int LoadedMachineRuleCount { get; set; }
+
+    public int EnabledApprovedRuleCount { get; set; }
+
+    public int MatchedProcessCount { get; set; }
+
+    public int LastApplySuccesses { get; set; }
+
+    public int LastApplyFailures { get; set; }
+
+    public List<RuleRuntimeSummaryDto> Rules { get; set; } = [];
+
+    public List<ProcessRuntimeSummaryDto> Processes { get; set; } = [];
+}
+
+public sealed class RuleRuntimeSummaryDto
+{
+    public Guid RuleId { get; set; }
+
+    public string DisplayName { get; set; } = string.Empty;
+
+    public int MatchedProcessCount { get; set; }
+}
+
+public sealed class ProcessRuntimeSummaryDto
+{
+    public int ProcessId { get; set; }
+
+    public string ExecutableName { get; set; } = string.Empty;
+
+    public Guid RuleId { get; set; }
+
+    public string DesiredPriority { get; set; } = string.Empty;
+
+    public string LastResult { get; set; } = string.Empty;
+
+    public DateTimeOffset? LastApplyTime { get; set; }
 }
 
 public sealed class PrivilegeStatusDto
@@ -89,4 +158,23 @@ public sealed class ServiceAuthorizationDto
     public bool CommandAllowed { get; set; }
 
     public string DenialReason { get; set; } = string.Empty;
+}
+
+public sealed class ServiceProcessInfoDto
+{
+    public int ProcessId { get; set; }
+
+    public string ExecutableName { get; set; } = string.Empty;
+
+    public string? Path { get; set; }
+
+    public string? Owner { get; set; }
+
+    public List<string> ServiceNames { get; set; } = [];
+
+    public bool SharedServiceHost { get; set; }
+
+    public string PriorityAccessStatus { get; set; } = string.Empty;
+
+    public string? CurrentPriority { get; set; }
 }

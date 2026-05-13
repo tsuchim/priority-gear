@@ -230,6 +230,53 @@ Fix recorded after this attempt:
 - `sc.exe` exit code `1639` is summarized as an argument syntax error while preserving full output in the log.
 - `PriorityGear.TestTarget` now records explicit service mode when launched with `--service`.
 
+## Seventh Elevated Verification Attempt
+
+Date: 2026-05-13
+
+Status: passed.
+
+Environment and install:
+
+- Windows: `Microsoft Windows NT 10.0.26200.0`
+- User: `HP45L\tsuchim`
+- Elevated: `True`
+- Version: `20260513-191957`
+- Version directory: `C:\Program Files\PriorityGear\versions\20260513-191957`
+- Service binary path: `C:\Program Files\PriorityGear\versions\20260513-191957\PriorityGear.Service.exe`
+- SCM service account: `LocalSystem`
+
+Successful checks:
+
+- Status pipe: succeeded.
+- `SeDebugPrivilege`: attempted and succeeded.
+- Admin caller: `HP45L\tsuchim`
+- Caller SID: `S-1-5-21-472891707-3728080483-1935464772-1001`
+- Authorization source: `PipeAcl`
+- Normal TestTarget PID `80420`: `Normal -> BelowNormal -> Normal`
+- Approved machine rule: succeeded.
+- Disabled rule: rejected.
+- Unapproved rule: rejected.
+- Executable mismatch: rejected.
+- Path mismatch: rejected.
+- LocalSystem TestTarget service `PriorityGear.TestTarget.Service` PID `84380`: `Normal -> BelowNormal -> Normal`
+- LocalSystem TestTarget service stop/delete: succeeded.
+- PID 4 probe: `AccessDenied`, Win32 error `5`, no mutation attempted.
+- Final verdict: `passed`.
+
+This confirms the System Mode service path for both an interactive verification target and a safe LocalSystem-owned service process. It still does not claim arbitrary Windows service or `svchost.exe` support.
+
+## Machine Rule Runtime Work
+
+After this pass, development moved from verification-only commands toward a real service-side machine-rule monitor:
+
+- service loads `%ProgramData%\PriorityGear\rules.machine.json`
+- service scans processes every 30 seconds
+- only enabled administrator-approved rules are applied
+- disabled/unapproved/malformed rules do not silently become success
+- status pipe exposes bounded monitor summaries
+- admin pipe exposes rule management, reload, and scan-now commands
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)

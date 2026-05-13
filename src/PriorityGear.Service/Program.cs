@@ -9,6 +9,7 @@ builder.Services.AddSingleton<PrivilegeService>();
 builder.Services.AddSingleton<Win32PriorityApplier>();
 builder.Services.AddSingleton<MachineRuleStore>();
 builder.Services.AddSingleton<ServiceFileLog>();
+builder.Services.AddSingleton<MachineRuleMonitor>();
 builder.Services.AddHostedService<PriorityGearWorker>();
 
 await builder.Build().RunAsync();

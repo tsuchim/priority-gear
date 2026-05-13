@@ -128,6 +128,7 @@ internal static class Program
 
             await VerifyPriorityMutationAsync(plan, log);
             await VerifyMachineRulesAsync(plan, log);
+            await VerifyMachineRuleMonitorAsync(plan, log);
             await VerifyLocalSystemTestTargetServiceAsync(plan, log);
             await VerifyProbeAsync(log);
             await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: true);
@@ -518,6 +519,61 @@ internal static class Program
                 {
                     File.Delete(rulesPath);
                     log.Info("Temporary machine rules removed.");
+                }
+            }
+        }
+
+        private static async Task VerifyMachineRuleMonitorAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Machine rule monitor verification");
+            string targetExe = Path.Combine(plan.VersionInstallDirectory, "PriorityGear.TestTarget.exe");
+            using Process target = Process.Start(new ProcessStartInfo
+            {
+                FileName = targetExe,
+                Arguments = "--hold-seconds 120",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            }) ?? throw new InvalidOperationException("Failed to start PriorityGear.TestTarget for monitor verification.");
+
+            Guid ruleId = Guid.NewGuid();
+            try
+            {
+                await Task.Delay(500);
+                ServiceResponse add = await SendAdminAsync(new ServiceRequest
+                {
+                    Kind = ServiceCommandKind.AddMachineRule,
+                    MachineRule = new MachinePriorityRule
+                    {
+                        Id = ruleId,
+                        DisplayName = "Verification monitor rule",
+                        Enabled = true,
+                        ApprovedByAdmin = true,
+                        ExecutableName = "PriorityGear.TestTarget.exe",
+                        BasePriority = ProcessPriorityLevel.BelowNormal
+                    }
+                }, log, "Machine rule monitor add rule");
+                if (!add.Succeeded) throw new InvalidOperationException($"Monitor rule add failed: {add.Message}");
+
+                ServiceResponse scan = await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.ScanMachineRulesNow }, log, "Machine rule monitor scan now");
+                if (!scan.Succeeded) throw new InvalidOperationException($"Monitor scan failed: {scan.Message}");
+
+                target.Refresh();
+                log.Info($"Monitor target priority after scan: {target.PriorityClass}");
+                if (target.PriorityClass != ProcessPriorityClass.BelowNormal)
+                {
+                    throw new InvalidOperationException($"Monitor did not apply BelowNormal: {target.PriorityClass}");
+                }
+
+                await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.TestApplyPriority, ProcessId = target.Id, Priority = ProcessPriorityLevel.Normal }, log, "Machine rule monitor restore");
+            }
+            finally
+            {
+                await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.DeleteMachineRule, RuleId = ruleId }, log, "Machine rule monitor delete rule");
+                if (!target.HasExited)
+                {
+                    target.Kill(entireProcessTree: true);
+                    await target.WaitForExitAsync();
                 }
             }
         }

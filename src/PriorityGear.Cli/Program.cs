@@ -4,6 +4,11 @@ using System.Text.Json;
 using PriorityGear.Contracts;
 using PriorityGear.Core;
 
+if (args.Length >= 1 && string.Equals(args[0], "machine-rules", StringComparison.OrdinalIgnoreCase))
+{
+    return await HandleMachineRulesAsync(args);
+}
+
 if (args.Length < 2 || !string.Equals(args[0], "service", StringComparison.OrdinalIgnoreCase))
 {
     PrintUsage();
@@ -125,6 +130,13 @@ static void PrintUsage()
     Console.Error.WriteLine("  PriorityGear.Cli service apply-rule --rule-id <guid> --pid <pid>");
     Console.Error.WriteLine("  PriorityGear.Cli service apply-rule --rule-id <guid> --pid <pid> --priority BelowNormal");
     Console.Error.WriteLine("  PriorityGear.Cli service probe --pid <pid>");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules list");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules add --name <name> --exe <exeName> --priority BelowNormal --approve");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules update --id <id> --name <name> --exe <exeName> --priority BelowNormal --approve");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules enable|disable|delete --id <id>");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules approve|unapprove --id <id>");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules reload");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules scan-now");
 }
 
 static ProcessPriorityLevel? TryReadPriorityOption(string[] args, string name)
@@ -140,4 +152,58 @@ static ProcessPriorityLevel? TryReadPriorityOption(string[] args, string name)
     }
 
     return null;
+}
+
+static async Task<int> HandleMachineRulesAsync(string[] args)
+{
+    if (args.Length < 2)
+    {
+        PrintUsage();
+        return 2;
+    }
+
+    ServiceRequest request = args[1].ToLowerInvariant() switch
+    {
+        "list" => new ServiceRequest { Kind = ServiceCommandKind.GetMachineRules },
+        "add" => new ServiceRequest
+        {
+            Kind = ServiceCommandKind.AddMachineRule,
+            MachineRule = new MachinePriorityRule
+            {
+                DisplayName = ReadStringOption(args, "--name"),
+                ExecutableName = ReadStringOption(args, "--exe"),
+                BasePriority = ReadPriorityOption(args, "--priority"),
+                Enabled = true,
+                ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase))
+            }
+        },
+        "update" => new ServiceRequest
+        {
+            Kind = ServiceCommandKind.UpdateMachineRule,
+            MachineRule = new MachinePriorityRule
+            {
+                Id = ReadGuidOption(args, "--id"),
+                DisplayName = ReadStringOption(args, "--name"),
+                ExecutableName = ReadStringOption(args, "--exe"),
+                BasePriority = ReadPriorityOption(args, "--priority"),
+                Enabled = !args.Any(static arg => string.Equals(arg, "--disabled", StringComparison.OrdinalIgnoreCase)),
+                ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase))
+            }
+        },
+        "enable" => new ServiceRequest { Kind = ServiceCommandKind.EnableMachineRule, RuleId = ReadGuidOption(args, "--id") },
+        "disable" => new ServiceRequest { Kind = ServiceCommandKind.DisableMachineRule, RuleId = ReadGuidOption(args, "--id") },
+        "approve" => new ServiceRequest { Kind = ServiceCommandKind.ApproveMachineRule, RuleId = ReadGuidOption(args, "--id") },
+        "unapprove" => new ServiceRequest { Kind = ServiceCommandKind.UnapproveMachineRule, RuleId = ReadGuidOption(args, "--id") },
+        "delete" => new ServiceRequest { Kind = ServiceCommandKind.DeleteMachineRule, RuleId = ReadGuidOption(args, "--id") },
+        "reload" => new ServiceRequest { Kind = ServiceCommandKind.ReloadMachineRules },
+        "scan-now" => new ServiceRequest { Kind = ServiceCommandKind.ScanMachineRulesNow },
+        _ => throw new ArgumentException("Unsupported machine-rules command.")
+    };
+
+    string pipeName = request.Kind == ServiceCommandKind.GetMachineRules
+        ? ServiceContractConstants.StatusPipeName
+        : ServiceContractConstants.AdminPipeName;
+    ServiceResponse response = await SendAsync(pipeName, request);
+    Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+    return response.Succeeded ? 0 : 1;
 }

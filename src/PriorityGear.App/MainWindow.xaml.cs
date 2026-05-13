@@ -134,7 +134,8 @@ public partial class MainWindow : Window
         ServiceResponse response = await _systemModeClient.GetStatusAsync(TimeSpan.FromSeconds(2));
         if (response.Succeeded && response.Status is not null)
         {
-            SystemModeStatusText.Text = $"System Mode: running={response.Status.ServiceRunning}, account={response.Status.ServiceAccount}, SeDebug={response.Status.SeDebugPrivilege.Status}, auth={response.Status.AuthorizationMode}";
+            SystemModeStatusText.Text =
+                $"System Mode: running={response.Status.ServiceRunning}, configured={response.Status.ConfiguredServiceAccount}, identity={response.Status.ProcessIdentity}, network={response.Status.NetworkIdentity}, SeDebug={response.Status.SeDebugPrivilege.Status}, monitor={response.Status.MachineRuleMonitor.MonitorRunning}, rules={response.Status.MachineRuleMonitor.LoadedMachineRuleCount}, approved={response.Status.MachineRuleMonitor.EnabledApprovedRuleCount}, lastScan={response.Status.MachineRuleMonitor.LastScanTime?.LocalDateTime.ToString() ?? "never"}, results={response.Status.MachineRuleMonitor.LastApplySuccesses}/{response.Status.MachineRuleMonitor.LastApplyFailures}";
         }
         else
         {

@@ -124,6 +124,57 @@ public sealed class ServiceCommandHandlerTests
     }
 
     [Fact]
+    public void MachineRuleStoreMalformedJsonReportsFailure()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "rules.machine.json");
+        File.WriteAllText(path, "{ invalid json");
+        MachineRuleStore store = new(path);
+
+        MachineRuleStoreResult result = store.TryLoad();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("{ invalid json", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void AddMachineRuleDoesNotOverwriteMalformedJson()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "rules.machine.json");
+        File.WriteAllText(path, "{ invalid json");
+        MachineRuleStore store = new(path);
+        ServiceFileLog log = new();
+        ServiceCommandHandler handler = new(
+            new Win32PriorityApplier(),
+            store,
+            new MachineRuleMonitor(store, new Win32PriorityApplier(), log),
+            () => new PrivilegeEnableResult(true, true, Win32PriorityStatus.Success, null, "OK"));
+
+        ServiceResponse response = handler.HandleAdmin(
+            new ServiceRequest
+            {
+                Kind = ServiceCommandKind.AddMachineRule,
+                MachineRule = new MachinePriorityRule { DisplayName = "test", ExecutableName = "test.exe", Enabled = true, ApprovedByAdmin = true }
+            },
+            new ServiceAuthorizationResult("admin", "S-1-5-32-544", true, "PipeAcl", true, string.Empty));
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("not overwritten", response.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("{ invalid json", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void MachineRuleMatcherIgnoresDisabledAndUnapprovedRules()
+    {
+        Assert.False(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule { Enabled = false, ApprovedByAdmin = true }));
+        Assert.False(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule { Enabled = true, ApprovedByAdmin = false }));
+        Assert.True(MachineRuleMatcher.IsRuntimeEligible(new MachinePriorityRule { Enabled = true, ApprovedByAdmin = true }));
+    }
+
+    [Fact]
     public async Task PipeProtocolReadsSingleBoundedRequestLine()
     {
         await using MemoryStream stream = new();
@@ -153,9 +204,12 @@ public sealed class ServiceCommandHandlerTests
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, "rules.machine.json");
         File.WriteAllText(path, JsonSerializer.Serialize(rules, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        MachineRuleStore store = new(path);
+        ServiceFileLog log = new();
         return new ServiceCommandHandler(
             new Win32PriorityApplier(),
-            new MachineRuleStore(path),
+            store,
+            new MachineRuleMonitor(store, new Win32PriorityApplier(), log),
             () => new PrivilegeEnableResult(true, false, Win32PriorityStatus.PrivilegeUnavailable, 1300, "Unavailable"));
     }
 }
