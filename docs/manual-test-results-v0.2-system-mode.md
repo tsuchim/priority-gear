@@ -143,6 +143,66 @@ Fix recorded after this attempt:
 - CLI and verification setup use explicit `TokenImpersonationLevel.Impersonation` for admin pipe connections.
 - Mutation remains fail-closed if caller identity is still unavailable.
 
+## Fifth Elevated Verification Attempt
+
+Date: 2026-05-13
+
+Status: passed.
+
+Environment and install:
+
+- Windows: `Microsoft Windows NT 10.0.26200.0`
+- User: `HP45L\tsuchim`
+- Elevated: `True`
+- Version directory: `C:\Program Files\PriorityGear\versions\20260513-185657`
+- Service binary path: `C:\Program Files\PriorityGear\versions\20260513-185657\PriorityGear.Service.exe`
+- Service account from SCM: `LocalSystem`
+
+Service and authorization:
+
+- Status pipe: succeeded.
+- `SeDebugPrivilege`: attempted and succeeded.
+- Admin caller: `HP45L\tsuchim`
+- Caller SID: `S-1-5-21-472891707-3728080483-1935464772-1001`
+- Authorization source: `PipeAcl`
+- Admin pipe authorization: succeeded.
+
+Service-path priority mutation:
+
+- TestTarget PID: `24684`
+- Original priority: `Normal`
+- Priority after apply: `BelowNormal`
+- Priority after restore: `Normal`
+
+Machine rule validation:
+
+- Enabled approved matching machine rule: succeeded.
+- Disabled rule: rejected.
+- Unapproved rule: rejected.
+- Executable mismatch: rejected.
+- Path mismatch: rejected.
+
+Denied/protected probe:
+
+- PID 4 probe: `AccessDenied`
+- Win32 error: `5`
+- No mutation attempted.
+
+Final verdict: `passed`.
+
+This is the first confirmed end-to-end System Mode service-path success. It proves service install/update, LocalSystem service startup, status pipe, admin pipe authorization, service-path priority mutation, machine rule validation, and explicit denied/protected probing.
+
+## Remaining Verification Gap
+
+The successful run used a verification process launched by the interactive setup. It does not yet prove priority change for a process owned by LocalSystem or another non-interactive account.
+
+Next verification step:
+
+- Register `PriorityGear.TestTarget.exe` as temporary service `PriorityGear.TestTarget.Service`.
+- Run it as LocalSystem.
+- Change and restore its priority through `PriorityGear.Service`.
+- Stop and delete the temporary service.
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)

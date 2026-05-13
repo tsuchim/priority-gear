@@ -59,4 +59,6 @@ artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.Ver
 
 setup は `%ProgramFiles%\PriorityGear` に検証用 payload を配置し、LocalSystem service を登録・起動し、status pipe / 管理者 mutation pipe、`PriorityGear.TestTarget` の優先度変更と復元、temporary machine rule の検証を行います。ログは `%ProgramData%\PriorityGear\Logs` に出力されます。
 
+v0.2 検証では、対話ユーザー側の TestTarget に対する service 経由の優先度変更は成功済みです。次の検証 setup では、一時的な LocalSystem-owned `PriorityGear.TestTarget.Service` も作成し、安全な service-owned process に対して同じ経路を確認します。
+
 ライセンスは MIT です。

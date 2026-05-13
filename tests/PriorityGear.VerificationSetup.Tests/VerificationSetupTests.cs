@@ -48,6 +48,8 @@ public sealed class VerificationSetupTests
 
         Assert.AreEqual("PriorityGear.Service", plan.ServiceName);
         Assert.AreEqual("PriorityGear System Mode Service", plan.DisplayName);
+        Assert.AreEqual("PriorityGear.TestTarget.Service", plan.TestTargetServiceName);
+        Assert.AreEqual("PriorityGear TestTarget Service", plan.TestTargetDisplayName);
         Assert.AreEqual("20260513-164500", plan.Version);
         StringAssert.Contains(plan.BaseInstallDirectory, "PriorityGear");
         StringAssert.Contains(plan.VersionInstallDirectory, Path.Combine("versions", "20260513-164500"));

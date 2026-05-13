@@ -51,6 +51,8 @@ artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.Ver
 
 Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\PriorityGear`, verifies the status pipe and administrator mutation pipe, changes and restores priority for `PriorityGear.TestTarget`, validates temporary machine rules, and writes a log under `%ProgramData%\PriorityGear\Logs`.
 
+The v0.2 verification has confirmed the main service path for an interactive test target. The next verification setup also creates a temporary LocalSystem-owned `PriorityGear.TestTarget.Service` to prove the same path against a safe service-owned process.
+
 ## Portable Publish
 
 Framework-dependent:

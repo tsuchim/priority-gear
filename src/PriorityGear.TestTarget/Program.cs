@@ -1,17 +1,15 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
 int holdSeconds = ReadHoldSeconds(args);
-using CancellationTokenSource cancellation = new(TimeSpan.FromSeconds(holdSeconds));
 
-Console.WriteLine($"PriorityGear.TestTarget PID={Environment.ProcessId} HoldSeconds={holdSeconds}");
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+builder.Services.AddWindowsService(options => options.ServiceName = "PriorityGear TestTarget Service");
+builder.Services.AddSingleton(new HoldOptions(holdSeconds));
+builder.Services.AddHostedService<TestTargetWorker>();
 
-try
-{
-    await Task.Delay(Timeout.InfiniteTimeSpan, cancellation.Token);
-}
-catch (OperationCanceledException)
-{
-}
-
-return 0;
+await builder.Build().RunAsync();
 
 static int ReadHoldSeconds(string[] args)
 {
@@ -27,4 +25,21 @@ static int ReadHoldSeconds(string[] args)
     }
 
     return defaultSeconds;
+}
+
+internal sealed record HoldOptions(int HoldSeconds);
+
+internal sealed class TestTargetWorker(HoldOptions options, ILogger<TestTargetWorker> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        logger.LogInformation("PriorityGear.TestTarget started. PID={ProcessId}; HoldSeconds={HoldSeconds}", Environment.ProcessId, options.HoldSeconds);
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(options.HoldSeconds), stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+    }
 }

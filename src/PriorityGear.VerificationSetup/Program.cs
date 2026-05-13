@@ -72,6 +72,14 @@ internal static class Program
             }
             catch (Exception ex)
             {
+                try
+                {
+                    await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: false);
+                }
+                catch
+                {
+                }
+
                 log.Fail(ex.ToString());
                 ExitCode = 1;
                 Finish($"PriorityGear System Mode verification: FAILED\r\nReason: {ex.Message}", log);
@@ -103,6 +111,7 @@ internal static class Program
                 throw new FileNotFoundException($"Payload is incomplete: {string.Join(", ", missingFiles)}");
             }
 
+            await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: false);
             await StopExistingServiceBeforeInstallAsync(plan, log);
             InstallPayload(payloadDirectory, plan, log);
             await InstallOrUpdateServiceAsync(plan, log);
@@ -119,7 +128,9 @@ internal static class Program
 
             await VerifyPriorityMutationAsync(plan, log);
             await VerifyMachineRulesAsync(plan, log);
+            await VerifyLocalSystemTestTargetServiceAsync(plan, log);
             await VerifyProbeAsync(log);
+            await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: true);
 
             log.Section("Final verdict");
             log.Info("Final verdict: passed");
@@ -138,6 +149,8 @@ internal static class Program
                 await StopServiceAsync(plan, log);
                 RunProcess("sc.exe", $"delete \"{plan.ServiceName}\"", log);
             }
+
+            await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: false);
 
             log.Info("Uninstall completed.");
         }
@@ -302,13 +315,18 @@ internal static class Program
 
         private static async Task StopServiceAsync(VerificationInstallPlan plan, VerificationLog log)
         {
-            using ServiceController controller = new(plan.ServiceName);
+            await StopNamedServiceAsync(plan.ServiceName, log);
+        }
+
+        private static async Task StopNamedServiceAsync(string serviceName, VerificationLog log)
+        {
+            using ServiceController controller = new(serviceName);
             controller.Refresh();
             if (controller.Status is ServiceControllerStatus.Running or ServiceControllerStatus.StartPending)
             {
                 controller.Stop();
                 await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(20)));
-                log.Info("Service stopped.");
+                log.Info($"Service stopped: {serviceName}");
             }
         }
 
@@ -516,6 +534,121 @@ internal static class Program
             {
                 throw new InvalidOperationException($"Unexpected machine rule result for {label}: {response.Message}");
             }
+        }
+
+        private static async Task VerifyLocalSystemTestTargetServiceAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("LocalSystem TestTarget service priority mutation");
+            await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: false);
+
+            string testTargetExe = Path.Combine(plan.VersionInstallDirectory, "PriorityGear.TestTarget.exe");
+            string binaryPath = $"\"{testTargetExe}\" --hold-seconds 120";
+            log.Info($"TestTarget service name: {plan.TestTargetServiceName}");
+            log.Info($"TestTarget service binary path: {binaryPath}");
+
+            RunProcess("sc.exe", $"create \"{plan.TestTargetServiceName}\" binPath= \"{binaryPath}\" obj= LocalSystem start= demand DisplayName= \"{plan.TestTargetDisplayName}\"", log);
+            try
+            {
+                using ServiceController controller = new(plan.TestTargetServiceName);
+                controller.Start();
+                await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(20)));
+                log.Info($"TestTarget service status: {controller.Status}");
+
+                string account = TryGetServiceObjectName(plan.TestTargetServiceName) ?? string.Empty;
+                log.Info($"TestTarget service account: {account}");
+                if (!string.Equals(account, "LocalSystem", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"TestTarget service account is not LocalSystem: {account}");
+                }
+
+                int processId = await WaitForServiceProcessIdAsync(plan.TestTargetServiceName, log);
+                using Process target = Process.GetProcessById(processId);
+                target.Refresh();
+                log.Info($"LocalSystem TestTarget PID: {target.Id}");
+                log.Info($"LocalSystem TestTarget original priority: {target.PriorityClass}");
+
+                ServiceResponse apply = await SendAdminAsync(new ServiceRequest
+                {
+                    Kind = ServiceCommandKind.TestApplyPriority,
+                    ProcessId = target.Id,
+                    Priority = ProcessPriorityLevel.BelowNormal
+                }, log, "Admin pipe LocalSystem TestTarget priority apply");
+                if (!apply.Succeeded)
+                {
+                    throw new InvalidOperationException($"LocalSystem TestTarget priority apply failed: {apply.Message}");
+                }
+
+                target.Refresh();
+                log.Info($"LocalSystem TestTarget priority after apply: {target.PriorityClass}");
+                if (target.PriorityClass != ProcessPriorityClass.BelowNormal)
+                {
+                    throw new InvalidOperationException($"LocalSystem TestTarget priority did not become BelowNormal: {target.PriorityClass}");
+                }
+
+                ServiceResponse restore = await SendAdminAsync(new ServiceRequest
+                {
+                    Kind = ServiceCommandKind.TestApplyPriority,
+                    ProcessId = target.Id,
+                    Priority = ProcessPriorityLevel.Normal
+                }, log, "Admin pipe LocalSystem TestTarget priority restore");
+                if (!restore.Succeeded)
+                {
+                    throw new InvalidOperationException($"LocalSystem TestTarget priority restore failed: {restore.Message}");
+                }
+
+                target.Refresh();
+                log.Info($"LocalSystem TestTarget priority after restore: {target.PriorityClass}");
+                if (target.PriorityClass != ProcessPriorityClass.Normal)
+                {
+                    throw new InvalidOperationException($"LocalSystem TestTarget priority did not restore to Normal: {target.PriorityClass}");
+                }
+            }
+            finally
+            {
+                await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: true);
+            }
+        }
+
+        private static async Task CleanupTestTargetServiceAsync(VerificationInstallPlan plan, VerificationLog log, bool throwOnFailure)
+        {
+            try
+            {
+                log.Section("TestTarget service cleanup");
+                if (!ServiceExists(plan.TestTargetServiceName))
+                {
+                    log.Info("Temporary TestTarget service not found.");
+                    return;
+                }
+
+                log.Info("Temporary TestTarget service found.");
+                await StopNamedServiceAsync(plan.TestTargetServiceName, log);
+                RunProcess("sc.exe", $"delete \"{plan.TestTargetServiceName}\"", log);
+                log.Info("Temporary TestTarget service deleted.");
+            }
+            catch (Exception ex)
+            {
+                log.Info($"Temporary TestTarget service cleanup failed: {ex.Message}");
+                if (throwOnFailure)
+                {
+                    throw;
+                }
+            }
+        }
+
+        private static async Task<int> WaitForServiceProcessIdAsync(string serviceName, VerificationLog log)
+        {
+            for (int attempt = 1; attempt <= 20; attempt++)
+            {
+                int? processId = TryGetServiceProcessId(serviceName, log);
+                if (processId is > 0)
+                {
+                    return processId.Value;
+                }
+
+                await Task.Delay(500);
+            }
+
+            throw new InvalidOperationException($"PID was not found for service {serviceName}.");
         }
 
         private static async Task VerifyProbeAsync(VerificationLog log)

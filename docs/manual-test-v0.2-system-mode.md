@@ -24,6 +24,8 @@ The setup installs the service to `%ProgramFiles%\PriorityGear`, starts it as `L
 
 The admin pipe protocol reads one bounded request line before caller impersonation. No mutation is executed until the caller is verified as an administrator.
 
+The setup also creates a temporary `PriorityGear.TestTarget.Service` running as LocalSystem, changes and restores that service-owned process priority, then stops and deletes the temporary service. This proves System Mode against a safe LocalSystem-owned target without touching arbitrary Windows services.
+
 Reruns are expected to be idempotent. The setup first checks for an existing `PriorityGear.Service`, stops it through SCM if it is running, waits for the service process to exit, then installs the new payload into a fresh versioned directory:
 
 ```text

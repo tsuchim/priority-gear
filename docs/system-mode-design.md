@@ -61,6 +61,8 @@ This artifact is for local verification only and is not published to GitHub Rele
 
 Reruns do not delete or overwrite the active base install directory. Old version cleanup is best-effort and non-blocking.
 
+The verification setup includes a safe LocalSystem-owned target check. It temporarily registers `PriorityGear.TestTarget.Service` as LocalSystem, starts it, obtains its service PID, changes and restores priority through the main service admin pipe, then stops and deletes the temporary service. This is intentionally separate from `svchost.exe` service-name matching.
+
 ## Service Diagnostics
 
 The service writes an independent file log to:

@@ -3,6 +3,8 @@ namespace PriorityGear.VerificationSetup;
 public sealed record VerificationInstallPlan(
     string ServiceName,
     string DisplayName,
+    string TestTargetServiceName,
+    string TestTargetDisplayName,
     string BaseInstallDirectory,
     string Version,
     string VersionInstallDirectory,
@@ -27,6 +29,8 @@ public sealed record VerificationInstallPlan(
         return new VerificationInstallPlan(
             "PriorityGear.Service",
             "PriorityGear System Mode Service",
+            "PriorityGear.TestTarget.Service",
+            "PriorityGear TestTarget Service",
             installDirectory,
             version,
             versionDirectory,
