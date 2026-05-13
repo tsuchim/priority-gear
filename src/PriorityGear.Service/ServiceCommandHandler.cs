@@ -325,6 +325,18 @@ public sealed class ServiceCommandHandler(
             return false;
         }
 
+        if (rule.DryRunOnly)
+        {
+            failure = "Machine rule is dry-run only and will not mutate process priority.";
+            return false;
+        }
+
+        if (MachineRuleMatcher.IsUnsafeSvchostExecutableOnlyRule(rule))
+        {
+            failure = "Executable-only svchost.exe machine rules are not safe. Use an explicit service-name rule.";
+            return false;
+        }
+
         if (request.ProcessId is null)
         {
             failure = "ProcessId is required.";
@@ -363,15 +375,5 @@ public sealed class ServiceCommandHandler(
             failure = "Target process exited.";
             return false;
         }
-    }
-
-    private static string? TryGetPath(Process process)
-    {
-        try { return process.MainModule?.FileName; } catch { return null; }
-    }
-
-    private static string? TryGetPriority(Process process)
-    {
-        try { return process.PriorityClass.ToString(); } catch { return null; }
     }
 }

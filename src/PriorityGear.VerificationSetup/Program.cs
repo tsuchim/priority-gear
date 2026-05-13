@@ -1161,7 +1161,7 @@ internal static class Program
             MessageBox.Show(
                 $"{summary}\r\n\r\nLog: {log.Path}",
                 "PriorityGear System Mode Verification",
-                ExitCode == 0 ? MessageBoxButtons.OK : MessageBoxButtons.OK,
+                MessageBoxButtons.OK,
                 ExitCode == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Error);
         }
     }

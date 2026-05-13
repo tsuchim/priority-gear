@@ -107,6 +107,63 @@ public sealed class ServiceCommandHandlerTests
     }
 
     [Fact]
+    public void ApplyApprovedMachineRuleRejectsDryRunOnlyRule()
+    {
+        Guid ruleId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        ServiceCommandHandler handler = HandlerWithRules([
+            new MachinePriorityRule
+            {
+                Id = ruleId,
+                Enabled = true,
+                ApprovedByAdmin = true,
+                DryRunOnly = true,
+                ExecutableName = "testhost.exe"
+            }
+        ]);
+
+        ServiceResponse response = handler.HandleAdmin(
+            new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ApplyApprovedMachineRule,
+                RuleId = ruleId,
+                ProcessId = Environment.ProcessId,
+                Priority = ProcessPriorityLevel.Normal
+            },
+            new ServiceAuthorizationResult("admin", "S-1-5-32-544", true, "PipeAcl", true, string.Empty));
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("dry-run", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ApplyApprovedMachineRuleRejectsExecutableOnlySvchostRule()
+    {
+        Guid ruleId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        ServiceCommandHandler handler = HandlerWithRules([
+            new MachinePriorityRule
+            {
+                Id = ruleId,
+                Enabled = true,
+                ApprovedByAdmin = true,
+                ExecutableName = "svchost.exe"
+            }
+        ]);
+
+        ServiceResponse response = handler.HandleAdmin(
+            new ServiceRequest
+            {
+                Kind = ServiceCommandKind.ApplyApprovedMachineRule,
+                RuleId = ruleId,
+                ProcessId = Environment.ProcessId,
+                Priority = ProcessPriorityLevel.Normal
+            },
+            new ServiceAuthorizationResult("admin", "S-1-5-32-544", true, "PipeAcl", true, string.Empty));
+
+        Assert.False(response.Succeeded);
+        Assert.Contains("svchost.exe", response.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ProbePriorityAccessRequiresAdminAuthorization()
     {
         ServiceCommandHandler handler = HandlerWithRules([]);

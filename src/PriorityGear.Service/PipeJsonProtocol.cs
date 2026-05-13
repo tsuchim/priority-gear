@@ -25,31 +25,37 @@ public static class PipeJsonProtocol
 
     public static async Task<string?> ReadRequestLineAsync(Stream stream, CancellationToken cancellationToken)
     {
-        List<byte> bytes = [];
-        byte[] buffer = new byte[1];
+        using MemoryStream bytes = new();
+        byte[] buffer = new byte[4096];
 
         while (true)
         {
             int read = await stream.ReadAsync(buffer, cancellationToken);
             if (read == 0)
             {
-                return bytes.Count == 0 ? null : Decode(bytes);
+                return bytes.Length == 0 ? null : Decode(bytes);
             }
 
-            if (buffer[0] == (byte)'\n')
+            int newlineIndex = Array.IndexOf(buffer, (byte)'\n', 0, read);
+            int bytesToWrite = newlineIndex >= 0 ? newlineIndex : read;
+            if (bytes.Length + bytesToWrite > MaxRequestLineBytes)
             {
-                if (bytes.Count > 0 && bytes[^1] == (byte)'\r')
+                throw new InvalidDataException($"Request line exceeds maximum size of {MaxRequestLineBytes} bytes.");
+            }
+
+            if (bytesToWrite > 0)
+            {
+                bytes.Write(buffer, 0, bytesToWrite);
+            }
+
+            if (newlineIndex >= 0)
+            {
+                if (bytes.Length > 0 && bytes.GetBuffer()[bytes.Length - 1] == (byte)'\r')
                 {
-                    bytes.RemoveAt(bytes.Count - 1);
+                    bytes.SetLength(bytes.Length - 1);
                 }
 
                 return Decode(bytes);
-            }
-
-            bytes.Add(buffer[0]);
-            if (bytes.Count > MaxRequestLineBytes)
-            {
-                throw new InvalidDataException($"Request line exceeds maximum size of {MaxRequestLineBytes} bytes.");
             }
         }
     }
@@ -62,8 +68,8 @@ public static class PipeJsonProtocol
         await writer.FlushAsync(cancellationToken);
     }
 
-    private static string Decode(List<byte> bytes)
+    private static string Decode(MemoryStream bytes)
     {
-        return System.Text.Encoding.UTF8.GetString(bytes.ToArray());
+        return System.Text.Encoding.UTF8.GetString(bytes.GetBuffer(), 0, checked((int)bytes.Length));
     }
 }
