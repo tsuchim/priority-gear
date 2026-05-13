@@ -8,6 +8,8 @@ namespace PriorityGear.Service;
 
 public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier)
 {
+    public const int DefaultResponseLimit = 100;
+
     public IReadOnlyList<ServiceProcessInfoDto> Discover()
     {
         Dictionary<int, ServiceProcessInfoDto> byPid = [];
@@ -50,6 +52,10 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
             RunningServiceCount = discovered.Sum(info => info.ServiceNames.Count),
             ServiceHostProcessCount = discovered.Count,
             SharedHostProcessCount = discovered.Count(info => info.SharedServiceHost),
+            TotalDiscoveredGroupCount = discovered.Count,
+            ReturnedGroupCount = Math.Min(discovered.Count, DefaultResponseLimit),
+            Truncated = discovered.Count > DefaultResponseLimit,
+            Limit = DefaultResponseLimit,
             Message = "Service process discovery available."
         };
     }
@@ -88,6 +94,22 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
         {
             return null;
         }
+    }
+
+    public ServiceProcessInfoDto? DiscoverHostGroupByServiceName(string serviceName)
+    {
+        ServiceProcessInfoDto? direct = DiscoverOne(serviceName);
+        if (direct is null)
+        {
+            return null;
+        }
+
+        return DiscoverHostGroupByProcessId(direct.ProcessId) ?? direct;
+    }
+
+    public ServiceProcessInfoDto? DiscoverHostGroupByProcessId(int processId)
+    {
+        return Discover().FirstOrDefault(info => info.ProcessId == processId);
     }
 
     private ServiceProcessInfoDto CreateProcessInfo(int processId)

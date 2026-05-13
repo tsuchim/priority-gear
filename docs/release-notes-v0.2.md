@@ -32,6 +32,7 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Dry-run machine rules for discovery and target validation without mutation.
 - CLI service-process discovery commands.
 - Direct service-name discovery and verification retry diagnostics for newly created temporary services.
+- Targeted service/PID discovery and truncation metadata for bounded service-process responses.
 
 ## Not Planned for v0.2
 

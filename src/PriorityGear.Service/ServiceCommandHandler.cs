@@ -156,12 +156,41 @@ public sealed class ServiceCommandHandler(
 
     private ServiceResponse DiscoverServiceProcessesResponse(ServiceRequest request)
     {
-        List<ServiceProcessInfoDto> processes = string.IsNullOrWhiteSpace(request.ServiceName)
-            ? serviceProcessDiscovery.Discover().Take(100).ToList()
-            : serviceProcessDiscovery.FindByServiceName(request.ServiceName) is { } process
-                ? [process]
-                : [];
-        return new ServiceResponse { Succeeded = true, Message = "Service process discovery completed.", ServiceProcesses = processes };
+        IReadOnlyList<ServiceProcessInfoDto> discovered = serviceProcessDiscovery.Discover();
+        List<ServiceProcessInfoDto> processes;
+        if (!string.IsNullOrWhiteSpace(request.ServiceName))
+        {
+            processes = serviceProcessDiscovery.DiscoverHostGroupByServiceName(request.ServiceName) is { } process ? [process] : [];
+        }
+        else if (request.ProcessId is > 0)
+        {
+            processes = serviceProcessDiscovery.DiscoverHostGroupByProcessId(request.ProcessId.Value) is { } process ? [process] : [];
+        }
+        else
+        {
+            processes = discovered.Take(ServiceProcessDiscovery.DefaultResponseLimit).ToList();
+        }
+
+        return new ServiceResponse
+        {
+            Succeeded = true,
+            Message = "Service process discovery completed.",
+            ServiceProcesses = processes,
+            ServiceProcessDiscovery = new ServiceProcessDiscoveryStatusDto
+            {
+                Available = true,
+                RunningServiceCount = discovered.Sum(info => info.ServiceNames.Count),
+                ServiceHostProcessCount = discovered.Count,
+                SharedHostProcessCount = discovered.Count(info => info.SharedServiceHost),
+                TotalDiscoveredGroupCount = discovered.Count,
+                ReturnedGroupCount = processes.Count,
+                Truncated = string.IsNullOrWhiteSpace(request.ServiceName) &&
+                    request.ProcessId is null &&
+                    discovered.Count > ServiceProcessDiscovery.DefaultResponseLimit,
+                Limit = ServiceProcessDiscovery.DefaultResponseLimit,
+                Message = "Service process discovery available."
+            }
+        };
     }
 
     private ServiceResponse MutateRule(ServiceRequest request, Action<MachinePriorityRule> mutate, string message)

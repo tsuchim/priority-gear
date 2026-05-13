@@ -212,6 +212,23 @@ public sealed class ServiceCommandHandlerTests
     }
 
     [Fact]
+    public void ServiceDiscoveryStatusReportsTruncationMetadata()
+    {
+        ServiceProcessDiscoveryStatusDto status = new()
+        {
+            TotalDiscoveredGroupCount = 172,
+            ReturnedGroupCount = 100,
+            Truncated = true,
+            Limit = 100
+        };
+
+        Assert.Equal(172, status.TotalDiscoveredGroupCount);
+        Assert.Equal(100, status.ReturnedGroupCount);
+        Assert.True(status.Truncated);
+        Assert.Equal(100, status.Limit);
+    }
+
+    [Fact]
     public async Task PipeProtocolReadsSingleBoundedRequestLine()
     {
         await using MemoryStream stream = new();

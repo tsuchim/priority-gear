@@ -371,6 +371,34 @@ Fix direction:
 - each retry records SCM state, SCM PID, direct discovery result, grouped discovery result, and grouped PID contents
 - final failure diagnostics include direct SCM path/account and service log tail
 
+## Tenth Elevated Verification Attempt
+
+Date: 2026-05-13
+
+Status: failed at service-process discovery verification.
+
+New observation:
+
+- Temporary LocalSystem TestTarget service was created and running.
+- SCM PID was `66800`.
+- Direct service-name discovery repeatedly found `PriorityGear.TestTarget.Service` with PID `66800`.
+- Direct discovery returned `PriorityGear.TestTarget.exe`, path under `%ProgramFiles%\PriorityGear\versions\20260513-210245`, owner `LocalSystem`, `sharedServiceHost=false`, priority access `Success`, current priority `Normal`.
+- Unfiltered grouped discovery returned only 100 groups while status summary reported 172 service host groups.
+- The temporary service was omitted from the bounded unfiltered response.
+
+Interpretation:
+
+- Direct service lookup works.
+- The bounded unfiltered grouped response is not suitable as the only proof for a specific service.
+- Verification must use targeted service/PID discovery and treat the unfiltered grouped response as a bounded summary only.
+
+Fix direction:
+
+- status pipe targeted discovery can return a host group by exact service name or PID
+- unfiltered discovery reports `totalDiscoveredGroupCount`, `returnedGroupCount`, `truncated`, and `limit`
+- verification accepts direct lookup plus targeted host group lookup
+- omission from the bounded unfiltered list no longer fails verification
+
 ## Historical Non-Elevated Smoke Test
 
 - User privilege level: normal user (`IsElevated=false`)

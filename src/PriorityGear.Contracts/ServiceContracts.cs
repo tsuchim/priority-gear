@@ -195,5 +195,13 @@ public sealed class ServiceProcessDiscoveryStatusDto
 
     public int SharedHostProcessCount { get; set; }
 
+    public int TotalDiscoveredGroupCount { get; set; }
+
+    public int ReturnedGroupCount { get; set; }
+
+    public bool Truncated { get; set; }
+
+    public int Limit { get; set; }
+
     public string Message { get; set; } = string.Empty;
 }

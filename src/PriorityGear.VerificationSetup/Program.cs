@@ -730,7 +730,7 @@ internal static class Program
         private static async Task<ServiceProcessInfoDto> WaitForDiscoveredServiceAsync(VerificationInstallPlan plan, int expectedPid, VerificationLog log)
         {
             ServiceResponse? lastDirect = null;
-            ServiceResponse? lastGrouped = null;
+            ServiceResponse? lastTargetedGroup = null;
             for (int attempt = 1; attempt <= 30; attempt++)
             {
                 int? scmPid = TryGetServiceProcessId(plan.TestTargetServiceName, log);
@@ -744,19 +744,24 @@ internal static class Program
                 ServiceProcessInfoDto? direct = lastDirect.ServiceProcesses?.FirstOrDefault();
                 log.Info($"Direct discovery: found={direct is not null}; pid={direct?.ProcessId.ToString() ?? "<none>"}");
 
-                lastGrouped = await SendStatusRequestAsync(
-                    new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses },
+                lastTargetedGroup = await SendStatusRequestAsync(
+                    new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses, ProcessId = expectedPid },
                     log,
-                    $"Grouped service discovery attempt {attempt}");
-                ServiceProcessInfoDto? groupedByService = lastGrouped.ServiceProcesses?.FirstOrDefault(process =>
+                    $"Targeted service host group discovery attempt {attempt}");
+                ServiceProcessInfoDto? targetedByService = lastTargetedGroup.ServiceProcesses?.FirstOrDefault(process =>
                     process.ServiceNames.Any(name => string.Equals(name, plan.TestTargetServiceName, StringComparison.OrdinalIgnoreCase)));
-                ServiceProcessInfoDto? groupedByPid = lastGrouped.ServiceProcesses?.FirstOrDefault(process => process.ProcessId == expectedPid);
-                log.Info($"Grouped discovery: servicePid={groupedByService?.ProcessId.ToString() ?? "<none>"}; pidServices={FormatServiceNames(groupedByPid)}; totalGroups={lastGrouped.ServiceProcesses?.Count.ToString() ?? "<none>"}");
+                ServiceProcessInfoDto? targetedByPid = lastTargetedGroup.ServiceProcesses?.FirstOrDefault(process => process.ProcessId == expectedPid);
+                log.Info($"Targeted group discovery: servicePid={targetedByService?.ProcessId.ToString() ?? "<none>"}; pidServices={FormatServiceNames(targetedByPid)}; returnedGroups={lastTargetedGroup.ServiceProcesses?.Count.ToString() ?? "<none>"}; totalDiscovered={lastTargetedGroup.ServiceProcessDiscovery?.TotalDiscoveredGroupCount.ToString() ?? "<none>"}; truncated={lastTargetedGroup.ServiceProcessDiscovery?.Truncated.ToString() ?? "<none>"}");
 
                 if (direct?.ProcessId == expectedPid &&
-                    groupedByService?.ProcessId == expectedPid)
+                    targetedByService?.ProcessId == expectedPid)
                 {
-                    return groupedByService;
+                    ServiceResponse summary = await SendStatusRequestAsync(
+                        new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses },
+                        log,
+                        "Bounded service discovery summary");
+                    log.Info($"Bounded summary: returned={summary.ServiceProcessDiscovery?.ReturnedGroupCount}; total={summary.ServiceProcessDiscovery?.TotalDiscoveredGroupCount}; truncated={summary.ServiceProcessDiscovery?.Truncated}; limit={summary.ServiceProcessDiscovery?.Limit}");
+                    return targetedByService;
                 }
 
                 await Task.Delay(500);
@@ -765,8 +770,8 @@ internal static class Program
             log.Info($"Direct SCM image path: {TryGetServiceImagePath(plan.TestTargetServiceName) ?? "<missing>"}");
             log.Info($"Direct SCM account: {TryGetServiceObjectName(plan.TestTargetServiceName) ?? "<missing>"}");
             log.Info($"Final direct discovery response: {JsonSerializer.Serialize(lastDirect, JsonOptions)}");
-            log.Info($"Final grouped discovery service count: {lastGrouped?.ServiceProcesses?.Count.ToString() ?? "<none>"}");
-            ServiceProcessInfoDto? samePid = lastGrouped?.ServiceProcesses?.FirstOrDefault(process => process.ProcessId == expectedPid);
+            log.Info($"Final targeted discovery response: {JsonSerializer.Serialize(lastTargetedGroup, JsonOptions)}");
+            ServiceProcessInfoDto? samePid = lastTargetedGroup?.ServiceProcesses?.FirstOrDefault(process => process.ProcessId == expectedPid);
             if (samePid is not null)
             {
                 log.Info($"Expected PID appeared with services: {FormatServiceNames(samePid)}");
