@@ -635,19 +635,7 @@ internal static class Program
                 log.Info($"LocalSystem TestTarget original priority: {target.PriorityClass}");
 
                 log.Section("Service process discovery verification");
-                ServiceResponse discovery = await SendStatusRequestAsync(new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses }, log, "Service process discovery");
-                if (!discovery.Succeeded || discovery.ServiceProcesses is null)
-                {
-                    throw new InvalidOperationException($"Service process discovery failed: {discovery.Message}");
-                }
-
-                ServiceProcessInfoDto? discoveredTarget = discovery.ServiceProcesses.FirstOrDefault(process =>
-                    process.ProcessId == target.Id &&
-                    process.ServiceNames.Any(name => string.Equals(name, plan.TestTargetServiceName, StringComparison.OrdinalIgnoreCase)));
-                if (discoveredTarget is null)
-                {
-                    throw new InvalidOperationException("LocalSystem TestTarget service was not discovered with the expected PID.");
-                }
+                ServiceProcessInfoDto discoveredTarget = await WaitForDiscoveredServiceAsync(plan, target.Id, log);
 
                 log.Info($"Discovered TestTarget service PID: {discoveredTarget.ProcessId}");
                 log.Info($"Discovered TestTarget shared host: {discoveredTarget.SharedServiceHost}");
@@ -739,6 +727,60 @@ internal static class Program
             }
         }
 
+        private static async Task<ServiceProcessInfoDto> WaitForDiscoveredServiceAsync(VerificationInstallPlan plan, int expectedPid, VerificationLog log)
+        {
+            ServiceResponse? lastDirect = null;
+            ServiceResponse? lastGrouped = null;
+            for (int attempt = 1; attempt <= 30; attempt++)
+            {
+                int? scmPid = TryGetServiceProcessId(plan.TestTargetServiceName, log);
+                string state = TryGetServiceControllerStatus(plan.TestTargetServiceName);
+                log.Info($"Discovery attempt {attempt}: service={plan.TestTargetServiceName}; state={state}; scmPid={scmPid?.ToString() ?? "<unknown>"}; expectedPid={expectedPid}");
+
+                lastDirect = await SendStatusRequestAsync(
+                    new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses, ServiceName = plan.TestTargetServiceName },
+                    log,
+                    $"Direct service discovery attempt {attempt}");
+                ServiceProcessInfoDto? direct = lastDirect.ServiceProcesses?.FirstOrDefault();
+                log.Info($"Direct discovery: found={direct is not null}; pid={direct?.ProcessId.ToString() ?? "<none>"}");
+
+                lastGrouped = await SendStatusRequestAsync(
+                    new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses },
+                    log,
+                    $"Grouped service discovery attempt {attempt}");
+                ServiceProcessInfoDto? groupedByService = lastGrouped.ServiceProcesses?.FirstOrDefault(process =>
+                    process.ServiceNames.Any(name => string.Equals(name, plan.TestTargetServiceName, StringComparison.OrdinalIgnoreCase)));
+                ServiceProcessInfoDto? groupedByPid = lastGrouped.ServiceProcesses?.FirstOrDefault(process => process.ProcessId == expectedPid);
+                log.Info($"Grouped discovery: servicePid={groupedByService?.ProcessId.ToString() ?? "<none>"}; pidServices={FormatServiceNames(groupedByPid)}; totalGroups={lastGrouped.ServiceProcesses?.Count.ToString() ?? "<none>"}");
+
+                if (direct?.ProcessId == expectedPid &&
+                    groupedByService?.ProcessId == expectedPid)
+                {
+                    return groupedByService;
+                }
+
+                await Task.Delay(500);
+            }
+
+            log.Info($"Direct SCM image path: {TryGetServiceImagePath(plan.TestTargetServiceName) ?? "<missing>"}");
+            log.Info($"Direct SCM account: {TryGetServiceObjectName(plan.TestTargetServiceName) ?? "<missing>"}");
+            log.Info($"Final direct discovery response: {JsonSerializer.Serialize(lastDirect, JsonOptions)}");
+            log.Info($"Final grouped discovery service count: {lastGrouped?.ServiceProcesses?.Count.ToString() ?? "<none>"}");
+            ServiceProcessInfoDto? samePid = lastGrouped?.ServiceProcesses?.FirstOrDefault(process => process.ProcessId == expectedPid);
+            if (samePid is not null)
+            {
+                log.Info($"Expected PID appeared with services: {FormatServiceNames(samePid)}");
+            }
+
+            AppendServiceDiagnostics(plan, log);
+            throw new InvalidOperationException("LocalSystem TestTarget service was not discovered with the expected PID after retry.");
+        }
+
+        private static string FormatServiceNames(ServiceProcessInfoDto? process)
+        {
+            return process is null ? "<none>" : string.Join(",", process.ServiceNames);
+        }
+
         private static async Task CleanupTestTargetServiceAsync(VerificationInstallPlan plan, VerificationLog log, bool throwOnFailure)
         {
             try
@@ -797,6 +839,20 @@ internal static class Program
         private static bool ServiceExists(string serviceName)
         {
             return ServiceController.GetServices().Any(service => string.Equals(service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string TryGetServiceControllerStatus(string serviceName)
+        {
+            try
+            {
+                using ServiceController controller = new(serviceName);
+                controller.Refresh();
+                return controller.Status.ToString();
+            }
+            catch (Exception ex)
+            {
+                return $"Unavailable: {ex.Message}";
+            }
         }
 
         private static string? TryGetServiceImagePath(string serviceName)

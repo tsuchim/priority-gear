@@ -37,6 +37,8 @@ public sealed class ServiceRequest
 
     public Guid? RuleId { get; set; }
 
+    public string? ServiceName { get; set; }
+
     public MachinePriorityRule? MachineRule { get; set; }
 }
 

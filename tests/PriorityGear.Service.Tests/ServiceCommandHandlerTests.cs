@@ -196,6 +196,22 @@ public sealed class ServiceCommandHandlerTests
     }
 
     [Fact]
+    public void ServiceDiscoveryRequestCarriesDirectServiceName()
+    {
+        ServiceRequest request = new()
+        {
+            Kind = ServiceCommandKind.DiscoverServiceProcesses,
+            ServiceName = "PriorityGear.TestTarget.Service"
+        };
+
+        string json = JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        ServiceRequest? roundTrip = JsonSerializer.Deserialize<ServiceRequest>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Equal(ServiceCommandKind.DiscoverServiceProcesses, roundTrip!.Kind);
+        Assert.Equal("PriorityGear.TestTarget.Service", roundTrip.ServiceName);
+    }
+
+    [Fact]
     public async Task PipeProtocolReadsSingleBoundedRequestLine()
     {
         await using MemoryStream stream = new();

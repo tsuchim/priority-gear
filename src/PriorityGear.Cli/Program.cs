@@ -240,7 +240,18 @@ static async Task<int> HandleServiceProcessesAsync(string[] args)
         return 2;
     }
 
-    ServiceResponse response = await SendAsync(ServiceContractConstants.StatusPipeName, new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses });
+    string? requestedServiceName = null;
+    if (args[1].Equals("show", StringComparison.OrdinalIgnoreCase) ||
+        args[1].Equals("probe", StringComparison.OrdinalIgnoreCase))
+    {
+        requestedServiceName = ReadStringOption(args, "--service-name");
+    }
+
+    ServiceResponse response = await SendAsync(ServiceContractConstants.StatusPipeName, new ServiceRequest
+    {
+        Kind = ServiceCommandKind.DiscoverServiceProcesses,
+        ServiceName = requestedServiceName
+    });
     if (!response.Succeeded || response.ServiceProcesses is null)
     {
         Console.WriteLine(JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
@@ -252,7 +263,7 @@ static async Task<int> HandleServiceProcessesAsync(string[] args)
     {
         case "show":
         case "probe":
-            string serviceName = ReadStringOption(args, "--service-name");
+            string serviceName = requestedServiceName!;
             processes = processes.Where(process => process.ServiceNames.Any(name => string.Equals(name, serviceName, StringComparison.OrdinalIgnoreCase)));
             break;
         case "show-pid":

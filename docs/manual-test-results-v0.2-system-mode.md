@@ -332,6 +332,45 @@ After this pass, development added guarded service-process discovery and service
 
 These changes require another elevated verification setup run before they are treated as proven on the machine.
 
+## Ninth Elevated Verification Attempt
+
+Date: 2026-05-13
+
+Status: failed at service-process discovery verification.
+
+Successful checks before the failure:
+
+- versioned install/update succeeded
+- `PriorityGear.Service` started as LocalSystem
+- status pipe succeeded
+- `SeDebugPrivilege` succeeded
+- admin pipe authorization succeeded
+- normal TestTarget priority mutation succeeded
+- machine rule validation succeeded
+- machine rule monitor verification succeeded
+- temporary LocalSystem TestTarget service was created and started successfully
+- TestTarget service account: `LocalSystem`
+- LocalSystem TestTarget PID: `48772`
+
+Failure:
+
+```text
+LocalSystem TestTarget service was not discovered with the expected PID.
+```
+
+Interpretation:
+
+- This was not a service install/start failure.
+- This was not a priority mutation failure.
+- The failure was in discovery freshness/completeness or verification timing after the temporary service was created.
+
+Fix direction:
+
+- status pipe discovery now supports direct service-name lookup
+- verification setup retries discovery for up to 15 seconds
+- each retry records SCM state, SCM PID, direct discovery result, grouped discovery result, and grouped PID contents
+- final failure diagnostics include direct SCM path/account and service log tail
+
 ## Historical Non-Elevated Smoke Test
 
 - User privilege level: normal user (`IsElevated=false`)

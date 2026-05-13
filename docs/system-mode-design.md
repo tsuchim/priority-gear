@@ -77,6 +77,8 @@ Machine rule mutation is available only on the administrator pipe. The service r
 
 Service process discovery groups running services by host PID and reports service names, display names where available, process name/path where readable, current priority where readable, shared-host status, and priority-access probe status. The current implementation uses .NET service enumeration with conservative `sc.exe queryex` PID lookup; a direct SCM API implementation remains a later hardening target.
 
+The status pipe also supports direct lookup by exact service name. Verification uses direct lookup plus grouped discovery with retry after creating temporary services, because SCM state may be visible before grouped discovery sees the new service consistently. Missing owner, path, current priority, or access-probe data must not remove a service from discovery results.
+
 Machine rules may target a service by exact `serviceName`. A service-name rule applies only when the service is running, the discovered PID matches the target, and executable/path constraints also pass. If the target PID hosts multiple services, the rule is skipped unless `allowSharedServiceHost=true`. A `dryRunOnly=true` rule reports the target as `DryRun` and does not call `SetPriorityClass`.
 
 Executable-only `svchost.exe` rules are rejected by default. Shared `svchost.exe` hosts require an explicit service-name rule, administrator approval, and explicit shared-host allowance before mutation is considered. This is guarded service-name support, not arbitrary `svchost.exe` control.

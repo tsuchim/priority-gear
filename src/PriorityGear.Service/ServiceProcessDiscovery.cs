@@ -56,7 +56,38 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
 
     public ServiceProcessInfoDto? FindByServiceName(string serviceName)
     {
+        ServiceProcessInfoDto? direct = DiscoverOne(serviceName);
+        if (direct is not null)
+        {
+            return direct;
+        }
+
         return Discover().FirstOrDefault(info => info.ServiceNames.Any(name => string.Equals(name, serviceName, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    public ServiceProcessInfoDto? DiscoverOne(string serviceName)
+    {
+        try
+        {
+            using ServiceController service = new(serviceName);
+            int? pid = TryGetServicePid(service.ServiceName);
+            if (pid is null or <= 0)
+            {
+                return null;
+            }
+
+            ServiceProcessInfoDto info = CreateProcessInfo(pid.Value);
+            info.ServiceNames.Add(service.ServiceName);
+            info.Owner = TryGetRegistryValue(service.ServiceName, "ObjectName");
+            info.SharedServiceHost = Discover().Any(candidate =>
+                candidate.ProcessId == pid.Value &&
+                candidate.ServiceNames.Count > 1);
+            return info;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private ServiceProcessInfoDto CreateProcessInfo(int processId)

@@ -18,7 +18,7 @@ public sealed class ServiceCommandHandler(
         {
             ServiceCommandKind.GetServiceStatus => StatusResponse(),
             ServiceCommandKind.GetMachineRules => RulesResponse(),
-            ServiceCommandKind.DiscoverServiceProcesses => DiscoverServiceProcessesResponse(),
+            ServiceCommandKind.DiscoverServiceProcesses => DiscoverServiceProcessesResponse(request),
             _ => new ServiceResponse
             {
                 Succeeded = false,
@@ -56,7 +56,7 @@ public sealed class ServiceCommandHandler(
             ServiceCommandKind.DeleteMachineRule => DeleteRuleResponse(request),
             ServiceCommandKind.ReloadMachineRules => ReloadRulesResponse(),
             ServiceCommandKind.ScanMachineRulesNow => ScanRulesResponse(),
-            ServiceCommandKind.DiscoverServiceProcesses => DiscoverServiceProcessesResponse(),
+            ServiceCommandKind.DiscoverServiceProcesses => DiscoverServiceProcessesResponse(request),
             _ => new ServiceResponse { Succeeded = false, Message = "Unsupported command." }
         };
 
@@ -154,9 +154,13 @@ public sealed class ServiceCommandHandler(
         return new ServiceResponse { Succeeded = true, Message = "Machine rule scan completed.", Status = StatusResponse().Status };
     }
 
-    private ServiceResponse DiscoverServiceProcessesResponse()
+    private ServiceResponse DiscoverServiceProcessesResponse(ServiceRequest request)
     {
-        List<ServiceProcessInfoDto> processes = serviceProcessDiscovery.Discover().Take(100).ToList();
+        List<ServiceProcessInfoDto> processes = string.IsNullOrWhiteSpace(request.ServiceName)
+            ? serviceProcessDiscovery.Discover().Take(100).ToList()
+            : serviceProcessDiscovery.FindByServiceName(request.ServiceName) is { } process
+                ? [process]
+                : [];
         return new ServiceResponse { Succeeded = true, Message = "Service process discovery completed.", ServiceProcesses = processes };
     }
 
