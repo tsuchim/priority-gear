@@ -73,6 +73,8 @@ The service includes a conservative machine-rule monitor. It loads `%ProgramData
 
 The monitor records last scan time, rule counts, matched process count, bounded per-rule summaries, and bounded per-process apply results. Status pipe responses include these summaries without dumping unbounded process lists.
 
+Monitor runtime summaries are current-scan summaries. Reloading rules prunes deleted rule IDs from runtime state, scans clear exited process entries, and unchanged already-applied priorities are reported as `AlreadyApplied` without calling `SetPriorityClass` again.
+
 Machine rule mutation is available only on the administrator pipe. The service refuses to overwrite malformed machine rule JSON during mutation.
 
 Service process discovery groups running services by host PID and reports service names, display names where available, process name/path where readable, current priority where readable, shared-host status, and priority-access probe status. The current implementation uses .NET service enumeration with conservative `sc.exe queryex` PID lookup; a direct SCM API implementation remains a later hardening target.
@@ -80,6 +82,8 @@ Service process discovery groups running services by host PID and reports servic
 The status pipe also supports direct lookup by exact service name. Verification uses direct lookup plus grouped discovery with retry after creating temporary services, because SCM state may be visible before grouped discovery sees the new service consistently. Missing owner, path, current priority, or access-probe data must not remove a service from discovery results.
 
 Unfiltered service-process discovery is bounded for status pipe size discipline. Responses report the total discovered group count, returned count, truncation flag, and limit. Callers that need a specific service or PID must use targeted discovery instead of relying on the first page of the unfiltered list.
+
+Targeted service-name and PID discovery inspect only the target process for path/priority/access details. They may enumerate service PID mappings to determine the host group, but they do not probe every service host process.
 
 Machine rules may target a service by exact `serviceName`. A service-name rule applies only when the service is running, the discovered PID matches the target, and executable/path constraints also pass. If the target PID hosts multiple services, the rule is skipped unless `allowSharedServiceHost=true`. A `dryRunOnly=true` rule reports the target as `DryRun` and does not call `SetPriorityClass`.
 

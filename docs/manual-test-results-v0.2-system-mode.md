@@ -399,6 +399,71 @@ Fix direction:
 - verification accepts direct lookup plus targeted host group lookup
 - omission from the bounded unfiltered list no longer fails verification
 
+## Eleventh Elevated Verification Attempt
+
+Date: 2026-05-13
+
+Status: passed.
+
+Environment:
+
+- Windows: `Microsoft Windows NT 10.0.26200.0`
+- User: `HP45L\tsuchim`
+- Elevated: `True`
+- Version: `20260513-215206`
+- Service binary path: `C:\Program Files\PriorityGear\versions\20260513-215206\PriorityGear.Service.exe`
+- Configured service account: `LocalSystem`
+- Process identity: `NT AUTHORITY\SYSTEM`
+- `SeDebugPrivilege`: `Success`
+
+Service-process discovery:
+
+- `totalDiscoveredGroupCount=171`
+- `returnedGroupCount=100`
+- `truncated=true`
+- `limit=100`
+- targeted lookup for `PriorityGear.TestTarget.Service` succeeded
+
+Temporary service:
+
+- Service name: `PriorityGear.TestTarget.Service`
+- PID: `36396`
+- `sharedServiceHost=false`
+- `priorityAccessStatus=Success`
+
+Service-name machine rule:
+
+- Display name: `Verification service-name monitor rule`
+- `serviceName=PriorityGear.TestTarget.Service`
+- `approved=true`
+- `allowSharedServiceHost=false`
+- `dryRunOnly=false`
+
+Service-name monitor scan:
+
+- Target PID: `36396`
+- Priority became `BelowNormal`
+- Restore to `Normal` succeeded
+- Temporary rule delete succeeded
+- Temporary service stop/delete succeeded
+
+Denied/protected probe:
+
+- PID 4: `AccessDenied`
+- Win32 error: `5`
+- no mutation attempted
+
+Final verdict: `passed`.
+
+This proves guarded service-name support for the safe `PriorityGear.TestTarget.Service` path. It does not prove arbitrary shared-host `svchost.exe` priority control.
+
+Follow-up hardening after this pass:
+
+- monitor status now prunes stale deleted-rule and exited-process entries
+- monitor status fields are treated as current-scan summaries
+- targeted service discovery avoids full process probing for every service process
+- verification setup adds a shared-host dry-run/reject safety check without mutating real shared hosts
+
 ## Historical Non-Elevated Smoke Test
 
 - User privilege level: normal user (`IsElevated=false`)

@@ -49,9 +49,9 @@ Then double-click:
 artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.VerificationSetup.exe
 ```
 
-Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\PriorityGear`, verifies the status pipe and administrator mutation pipe, changes and restores priority for `PriorityGear.TestTarget`, validates temporary machine rules, verifies the machine-rule monitor scan path, and writes a log under `%ProgramData%\PriorityGear\Logs`.
+Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\PriorityGear`, verifies the status pipe and administrator mutation pipe, changes and restores priority for `PriorityGear.TestTarget`, validates temporary machine rules, verifies the machine-rule monitor scan path, checks service-process discovery, and writes a log under `%ProgramData%\PriorityGear\Logs`.
 
-The v0.2 verification has confirmed the main service path for an interactive test target, the machine-rule monitor path, and a temporary LocalSystem-owned `PriorityGear.TestTarget.Service`.
+The v0.2 verification has confirmed the main service path for an interactive test target, the machine-rule monitor path, a temporary LocalSystem-owned `PriorityGear.TestTarget.Service`, targeted service discovery, and a service-name machine rule for that safe temporary service.
 
 The `devel` branch now contains the first service-side machine-rule monitor. Machine rules live under `%ProgramData%\PriorityGear\rules.machine.json`, are applied only when enabled and administrator-approved, and can be managed through the admin pipe/CLI. It also has conservative service-process discovery and service-name rules with shared-host safety gates. Arbitrary `svchost.exe` control is not claimed.
 

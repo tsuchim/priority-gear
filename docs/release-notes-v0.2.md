@@ -33,6 +33,8 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - CLI service-process discovery commands.
 - Direct service-name discovery and verification retry diagnostics for newly created temporary services.
 - Targeted service/PID discovery and truncation metadata for bounded service-process responses.
+- Current-scan-only monitor runtime summaries with stale deleted-rule/process entries pruned.
+- Shared-host dry-run/reject verification without mutating real shared hosts.
 
 ## Not Planned for v0.2
 

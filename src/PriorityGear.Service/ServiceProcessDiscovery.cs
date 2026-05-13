@@ -85,9 +85,7 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
             ServiceProcessInfoDto info = CreateProcessInfo(pid.Value);
             info.ServiceNames.Add(service.ServiceName);
             info.Owner = TryGetRegistryValue(service.ServiceName, "ObjectName");
-            info.SharedServiceHost = Discover().Any(candidate =>
-                candidate.ProcessId == pid.Value &&
-                candidate.ServiceNames.Count > 1);
+            info.SharedServiceHost = CountServicesForPid(pid.Value) > 1;
             return info;
         }
         catch
@@ -109,7 +107,29 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
 
     public ServiceProcessInfoDto? DiscoverHostGroupByProcessId(int processId)
     {
-        return Discover().FirstOrDefault(info => info.ProcessId == processId);
+        ServiceProcessInfoDto? info = null;
+        foreach (ServiceController service in ServiceController.GetServices())
+        {
+            using (service)
+            {
+                int? pid = TryGetServicePid(service.ServiceName);
+                if (pid != processId)
+                {
+                    continue;
+                }
+
+                info ??= CreateProcessInfo(processId);
+                info.ServiceNames.Add(service.ServiceName);
+                info.Owner ??= TryGetRegistryValue(service.ServiceName, "ObjectName");
+            }
+        }
+
+        if (info is not null)
+        {
+            info.SharedServiceHost = info.ServiceNames.Count > 1;
+        }
+
+        return info;
     }
 
     private ServiceProcessInfoDto CreateProcessInfo(int processId)
@@ -170,6 +190,23 @@ public sealed class ServiceProcessDiscovery(Win32PriorityApplier priorityApplier
         }
 
         return null;
+    }
+
+    private static int CountServicesForPid(int processId)
+    {
+        int count = 0;
+        foreach (ServiceController service in ServiceController.GetServices())
+        {
+            using (service)
+            {
+                if (TryGetServicePid(service.ServiceName) == processId)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
     }
 
     private static string? TryGetRegistryValue(string serviceName, string valueName)

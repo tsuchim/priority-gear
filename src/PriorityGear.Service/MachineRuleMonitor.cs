@@ -11,6 +11,7 @@ public sealed class MachineRuleMonitor(
     ServiceFileLog log)
 {
     private readonly Dictionary<string, ProcessRuntimeSummaryDto> _processes = [];
+    private readonly HashSet<string> _lastSuccessfulApplications = [];
     private readonly TimeSpan _scanInterval = TimeSpan.FromSeconds(30);
     private DateTimeOffset? _lastScan;
     private IReadOnlyList<MachinePriorityRule> _rules = [];
@@ -29,6 +30,7 @@ public sealed class MachineRuleMonitor(
         }
 
         _rules = result.Rules;
+        PruneStateForLoadedRules();
         _loadError = string.Empty;
         log.Info($"Machine rules loaded. Count={_rules.Count}");
     }
@@ -39,6 +41,7 @@ public sealed class MachineRuleMonitor(
         _lastScan = DateTimeOffset.Now;
         _successes = 0;
         _failures = 0;
+        _processes.Clear();
 
         if (!string.IsNullOrEmpty(_loadError))
         {
@@ -101,9 +104,9 @@ public sealed class MachineRuleMonitor(
     private void ApplyRule(MachinePriorityRule rule, Process process)
     {
         string key = $"{process.Id}:{rule.Id}:{rule.BasePriority}";
-        if (!rule.DryRunOnly && _processes.TryGetValue(key, out ProcessRuntimeSummaryDto? existing) &&
-            string.Equals(existing.LastResult, "Success", StringComparison.OrdinalIgnoreCase))
+        if (!rule.DryRunOnly && _lastSuccessfulApplications.Contains(key))
         {
+            _processes[key] = CreateProcessSummary(rule, process.Id, process.ProcessName, "AlreadyApplied");
             return;
         }
 
@@ -113,21 +116,22 @@ public sealed class MachineRuleMonitor(
         if (result.Succeeded)
         {
             _successes++;
+            if (!rule.DryRunOnly)
+            {
+                _lastSuccessfulApplications.Add(key);
+            }
         }
         else
         {
             _failures++;
+            _lastSuccessfulApplications.Remove(key);
         }
 
-        _processes[key] = new ProcessRuntimeSummaryDto
-        {
-            ProcessId = process.Id,
-            ExecutableName = process.ProcessName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? process.ProcessName : process.ProcessName + ".exe",
-            RuleId = rule.Id,
-            DesiredPriority = rule.BasePriority.ToString(),
-            LastResult = rule.DryRunOnly ? "DryRun" : result.Succeeded ? "Success" : $"{result.Status}: {result.Message}",
-            LastApplyTime = DateTimeOffset.Now
-        };
+        _processes[key] = CreateProcessSummary(
+            rule,
+            process.Id,
+            process.ProcessName,
+            rule.DryRunOnly ? "DryRun" : result.Succeeded ? "Success" : $"{result.Status}: {result.Message}");
     }
 
     private void ApplyServiceRule(MachinePriorityRule rule)
@@ -170,5 +174,38 @@ public sealed class MachineRuleMonitor(
         catch
         {
         }
+    }
+
+    private void PruneStateForLoadedRules()
+    {
+        HashSet<Guid> ruleIds = _rules.Select(rule => rule.Id).ToHashSet();
+        foreach (string key in _lastSuccessfulApplications.ToList())
+        {
+            if (!ruleIds.Any(ruleId => key.Contains($":{ruleId}:", StringComparison.OrdinalIgnoreCase)))
+            {
+                _lastSuccessfulApplications.Remove(key);
+            }
+        }
+
+        foreach (string key in _processes.Keys.ToList())
+        {
+            if (!ruleIds.Any(ruleId => key.Contains($":{ruleId}:", StringComparison.OrdinalIgnoreCase)))
+            {
+                _processes.Remove(key);
+            }
+        }
+    }
+
+    private static ProcessRuntimeSummaryDto CreateProcessSummary(MachinePriorityRule rule, int processId, string processName, string result)
+    {
+        return new ProcessRuntimeSummaryDto
+        {
+            ProcessId = processId,
+            ExecutableName = processName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? processName : processName + ".exe",
+            RuleId = rule.Id,
+            DesiredPriority = rule.BasePriority.ToString(),
+            LastResult = result,
+            LastApplyTime = DateTimeOffset.Now
+        };
     }
 }

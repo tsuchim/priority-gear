@@ -130,6 +130,7 @@ internal static class Program
             await VerifyMachineRulesAsync(plan, log);
             await VerifyMachineRuleMonitorAsync(plan, log);
             await VerifyLocalSystemTestTargetServiceAsync(plan, log);
+            await VerifySharedHostSafetyAsync(log);
             await VerifyProbeAsync(log);
             await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: true);
 
@@ -839,6 +840,73 @@ internal static class Program
             log.Info(response.Succeeded
                 ? "Probe found priority write access for PID 4. No mutation was attempted."
                 : "Probe failed explicitly for PID 4. No mutation was attempted.");
+        }
+
+        private static async Task VerifySharedHostSafetyAsync(VerificationLog log)
+        {
+            log.Section("Shared service host safety verification");
+            ServiceResponse discovery = await SendStatusRequestAsync(
+                new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses },
+                log,
+                "Bounded shared-host discovery");
+            ServiceProcessInfoDto? shared = discovery.ServiceProcesses?
+                .FirstOrDefault(process => process.SharedServiceHost && process.ServiceNames.Count > 0);
+            if (shared is null)
+            {
+                log.Info("Skipped: no shared host found in bounded discovery response.");
+                return;
+            }
+
+            string serviceName = shared.ServiceNames[0];
+            string? originalPriority = shared.CurrentPriority;
+            log.Info($"Shared host candidate: pid={shared.ProcessId}; exe={shared.ExecutableName}; service={serviceName}; originalPriority={originalPriority ?? "<unreadable>"}");
+
+            Guid ruleId = Guid.NewGuid();
+            ServiceResponse add = await SendAdminAsync(new ServiceRequest
+            {
+                Kind = ServiceCommandKind.AddMachineRule,
+                MachineRule = new MachinePriorityRule
+                {
+                    Id = ruleId,
+                    DisplayName = "Verification shared-host dry-run rule",
+                    Enabled = true,
+                    ApprovedByAdmin = true,
+                    ServiceName = serviceName,
+                    BasePriority = ProcessPriorityLevel.BelowNormal,
+                    DryRunOnly = true,
+                    AllowSharedServiceHost = false
+                }
+            }, log, "Shared-host dry-run rule add");
+            if (!add.Succeeded)
+            {
+                throw new InvalidOperationException($"Shared-host dry-run rule add failed: {add.Message}");
+            }
+
+            try
+            {
+                ServiceResponse scan = await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.ScanMachineRulesNow }, log, "Shared-host dry-run scan now");
+                if (!scan.Succeeded)
+                {
+                    throw new InvalidOperationException($"Shared-host dry-run scan failed: {scan.Message}");
+                }
+
+                ServiceResponse after = await SendStatusRequestAsync(
+                    new ServiceRequest { Kind = ServiceCommandKind.DiscoverServiceProcesses, ProcessId = shared.ProcessId },
+                    log,
+                    "Shared-host post-scan targeted discovery");
+                string? afterPriority = after.ServiceProcesses?.FirstOrDefault()?.CurrentPriority;
+                log.Info($"Shared host priority after dry-run/reject scan: {afterPriority ?? "<unreadable>"}");
+                if (!string.IsNullOrWhiteSpace(originalPriority) &&
+                    !string.IsNullOrWhiteSpace(afterPriority) &&
+                    !string.Equals(originalPriority, afterPriority, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"Shared-host priority changed during dry-run/reject verification: {originalPriority} -> {afterPriority}");
+                }
+            }
+            finally
+            {
+                await SendAdminAsync(new ServiceRequest { Kind = ServiceCommandKind.DeleteMachineRule, RuleId = ruleId }, log, "Shared-host dry-run rule delete");
+            }
         }
 
         private static bool ServiceExists(string serviceName)

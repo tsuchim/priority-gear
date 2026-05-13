@@ -156,7 +156,9 @@ public sealed class ServiceCommandHandler(
 
     private ServiceResponse DiscoverServiceProcessesResponse(ServiceRequest request)
     {
-        IReadOnlyList<ServiceProcessInfoDto> discovered = serviceProcessDiscovery.Discover();
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        bool targeted = !string.IsNullOrWhiteSpace(request.ServiceName) || request.ProcessId is > 0;
+        IReadOnlyList<ServiceProcessInfoDto> discovered = targeted ? [] : serviceProcessDiscovery.Discover();
         List<ServiceProcessInfoDto> processes;
         if (!string.IsNullOrWhiteSpace(request.ServiceName))
         {
@@ -171,18 +173,23 @@ public sealed class ServiceCommandHandler(
             processes = discovered.Take(ServiceProcessDiscovery.DefaultResponseLimit).ToList();
         }
 
+        stopwatch.Stop();
+        int totalGroupCount = targeted ? processes.Count : discovered.Count;
+
         return new ServiceResponse
         {
             Succeeded = true,
-            Message = "Service process discovery completed.",
+            Message = targeted
+                ? $"Targeted service process discovery completed in {stopwatch.ElapsedMilliseconds} ms."
+                : $"Bounded service process discovery completed in {stopwatch.ElapsedMilliseconds} ms.",
             ServiceProcesses = processes,
             ServiceProcessDiscovery = new ServiceProcessDiscoveryStatusDto
             {
                 Available = true,
-                RunningServiceCount = discovered.Sum(info => info.ServiceNames.Count),
-                ServiceHostProcessCount = discovered.Count,
-                SharedHostProcessCount = discovered.Count(info => info.SharedServiceHost),
-                TotalDiscoveredGroupCount = discovered.Count,
+                RunningServiceCount = targeted ? processes.Sum(info => info.ServiceNames.Count) : discovered.Sum(info => info.ServiceNames.Count),
+                ServiceHostProcessCount = totalGroupCount,
+                SharedHostProcessCount = targeted ? processes.Count(info => info.SharedServiceHost) : discovered.Count(info => info.SharedServiceHost),
+                TotalDiscoveredGroupCount = totalGroupCount,
                 ReturnedGroupCount = processes.Count,
                 Truncated = string.IsNullOrWhiteSpace(request.ServiceName) &&
                     request.ProcessId is null &&
