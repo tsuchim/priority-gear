@@ -63,6 +63,8 @@ Reruns do not delete or overwrite the active base install directory. Old version
 
 The verification setup includes a safe LocalSystem-owned target check. It temporarily registers `PriorityGear.TestTarget.Service` as LocalSystem, starts it, obtains its service PID, changes and restores priority through the main service admin pipe, then stops and deletes the temporary service. This is intentionally separate from `svchost.exe` service-name matching.
 
+The setup executes `sc.exe` through structured `ProcessStartInfo.ArgumentList` entries rather than one manually quoted command string. This is required for service binary paths containing spaces and additional arguments.
+
 ## Service Diagnostics
 
 The service writes an independent file log to:

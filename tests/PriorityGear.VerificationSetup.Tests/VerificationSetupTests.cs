@@ -89,4 +89,40 @@ public sealed class VerificationSetupTests
         Assert.IsFalse(response.Succeeded);
         StringAssert.Contains(response.Message, "Invalid service response JSON");
     }
+
+    [TestMethod]
+    public void TestTargetServiceCreateCommandUsesArgumentListShape()
+    {
+        string binaryPath = "\"C:\\Program Files\\PriorityGear\\versions\\20260513-190732\\PriorityGear.TestTarget.exe\" --service --hold-seconds 120";
+
+        ScCommand command = ScCommand.CreateService(
+            "PriorityGear.TestTarget.Service",
+            binaryPath,
+            "PriorityGear TestTarget Service");
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "create",
+                "PriorityGear.TestTarget.Service",
+                "binPath=",
+                binaryPath,
+                "obj=",
+                "LocalSystem",
+                "start=",
+                "demand",
+                "DisplayName=",
+                "PriorityGear TestTarget Service"
+            },
+            command.Arguments.ToArray());
+        StringAssert.Contains(command.DisplayText, "--service --hold-seconds 120");
+    }
+
+    [TestMethod]
+    public void ScExitCode1639IsClassifiedAsArgumentSyntaxError()
+    {
+        string message = ScCommand.ClassifyFailure(1639);
+
+        StringAssert.Contains(message, "argument syntax error");
+    }
 }

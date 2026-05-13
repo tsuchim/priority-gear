@@ -3,10 +3,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 int holdSeconds = ReadHoldSeconds(args);
+bool serviceMode = args.Any(arg => string.Equals(arg, "--service", StringComparison.OrdinalIgnoreCase));
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddWindowsService(options => options.ServiceName = "PriorityGear TestTarget Service");
-builder.Services.AddSingleton(new HoldOptions(holdSeconds));
+builder.Services.AddSingleton(new HoldOptions(holdSeconds, serviceMode));
 builder.Services.AddHostedService<TestTargetWorker>();
 
 await builder.Build().RunAsync();
@@ -27,13 +28,13 @@ static int ReadHoldSeconds(string[] args)
     return defaultSeconds;
 }
 
-internal sealed record HoldOptions(int HoldSeconds);
+internal sealed record HoldOptions(int HoldSeconds, bool ServiceMode);
 
 internal sealed class TestTargetWorker(HoldOptions options, ILogger<TestTargetWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("PriorityGear.TestTarget started. PID={ProcessId}; HoldSeconds={HoldSeconds}", Environment.ProcessId, options.HoldSeconds);
+        logger.LogInformation("PriorityGear.TestTarget started. PID={ProcessId}; HoldSeconds={HoldSeconds}; ServiceMode={ServiceMode}", Environment.ProcessId, options.HoldSeconds, options.ServiceMode);
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(options.HoldSeconds), stoppingToken);

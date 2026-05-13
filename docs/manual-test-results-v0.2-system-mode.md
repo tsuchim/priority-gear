@@ -203,6 +203,33 @@ Next verification step:
 - Change and restore its priority through `PriorityGear.Service`.
 - Stop and delete the temporary service.
 
+## Sixth Elevated Verification Attempt
+
+Date: 2026-05-13
+
+The sixth elevated verification attempt passed the main System Mode mutation and machine rule validation, then failed while creating the temporary LocalSystem TestTarget service.
+
+Observed result:
+
+```text
+sc.exe create "PriorityGear.TestTarget.Service" binPath= ""C:\Program Files\PriorityGear\versions\20260513-190732\PriorityGear.TestTarget.exe" --hold-seconds 120" obj= LocalSystem start= demand DisplayName= "PriorityGear TestTarget Service"
+```
+
+`sc.exe` returned usage text and exit code `1639`.
+
+Interpretation:
+
+- Main service path still worked.
+- LocalSystem TestTarget verification did not start.
+- The `sc.exe create` command used malformed nested quoting for `binPath`.
+
+Fix recorded after this attempt:
+
+- Verification setup now uses `ProcessStartInfo.ArgumentList` for `sc.exe` operations.
+- TestTarget service `binPath` now uses `"<version-dir>\PriorityGear.TestTarget.exe" --service --hold-seconds 120`.
+- `sc.exe` exit code `1639` is summarized as an argument syntax error while preserving full output in the log.
+- `PriorityGear.TestTarget` now records explicit service mode when launched with `--service`.
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)

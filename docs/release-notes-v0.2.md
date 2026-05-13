@@ -23,6 +23,7 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Verification setup uses versioned install directories under `%ProgramFiles%\PriorityGear\versions` so old runtime files do not block updates.
 - Admin pipe authorization now runs after one bounded request line is read, matching Windows named pipe impersonation requirements.
 - Verification setup now includes a temporary LocalSystem-owned `PriorityGear.TestTarget.Service` priority mutation check.
+- Verification setup uses structured `sc.exe` arguments for service create/config/delete commands to avoid nested quote failures.
 
 ## Not Planned for v0.2
 

@@ -147,7 +147,7 @@ internal static class Program
             if (ServiceExists(plan.ServiceName))
             {
                 await StopServiceAsync(plan, log);
-                RunProcess("sc.exe", $"delete \"{plan.ServiceName}\"", log);
+                RunSc(ScCommand.DeleteService(plan.ServiceName), log);
             }
 
             await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: false);
@@ -246,11 +246,11 @@ internal static class Program
             if (ServiceExists(plan.ServiceName))
             {
                 await StopServiceAsync(plan, log);
-                RunProcess("sc.exe", $"config \"{plan.ServiceName}\" binPath= \"{plan.ServiceExePath}\" obj= LocalSystem start= demand DisplayName= \"{plan.DisplayName}\"", log);
+                RunSc(ScCommand.ConfigService(plan.ServiceName, plan.ServiceExePath, plan.DisplayName), log);
             }
             else
             {
-                RunProcess("sc.exe", $"create \"{plan.ServiceName}\" binPath= \"{plan.ServiceExePath}\" obj= LocalSystem start= demand DisplayName= \"{plan.DisplayName}\"", log);
+                RunSc(ScCommand.CreateService(plan.ServiceName, plan.ServiceExePath, plan.DisplayName), log);
             }
 
             log.Info("Service installed or updated.");
@@ -542,11 +542,11 @@ internal static class Program
             await CleanupTestTargetServiceAsync(plan, log, throwOnFailure: false);
 
             string testTargetExe = Path.Combine(plan.VersionInstallDirectory, "PriorityGear.TestTarget.exe");
-            string binaryPath = $"\"{testTargetExe}\" --hold-seconds 120";
+            string binaryPath = $"\"{testTargetExe}\" --service --hold-seconds 120";
             log.Info($"TestTarget service name: {plan.TestTargetServiceName}");
             log.Info($"TestTarget service binary path: {binaryPath}");
 
-            RunProcess("sc.exe", $"create \"{plan.TestTargetServiceName}\" binPath= \"{binaryPath}\" obj= LocalSystem start= demand DisplayName= \"{plan.TestTargetDisplayName}\"", log);
+            RunSc(ScCommand.CreateService(plan.TestTargetServiceName, binaryPath, plan.TestTargetDisplayName), log);
             try
             {
                 using ServiceController controller = new(plan.TestTargetServiceName);
@@ -622,7 +622,7 @@ internal static class Program
 
                 log.Info("Temporary TestTarget service found.");
                 await StopNamedServiceAsync(plan.TestTargetServiceName, log);
-                RunProcess("sc.exe", $"delete \"{plan.TestTargetServiceName}\"", log);
+                RunSc(ScCommand.DeleteService(plan.TestTargetServiceName), log);
                 log.Info("Temporary TestTarget service deleted.");
             }
             catch (Exception ex)
@@ -690,7 +690,7 @@ internal static class Program
         {
             try
             {
-                ProcessResult result = RunProcessCapture("sc.exe", $"queryex \"{serviceName}\"");
+                ProcessResult result = RunScCapture(ScCommand.QueryEx(serviceName));
                 if (result.ExitCode != 0)
                 {
                     log.Info($"Could not query service PID. sc.exe exit={result.ExitCode}; {result.Error.Trim()}");
@@ -820,9 +820,40 @@ internal static class Program
             }
         }
 
+        private static void RunSc(ScCommand command, VerificationLog log)
+        {
+            ProcessResult result = RunScCapture(command);
+            log.Info(command.DisplayText);
+            if (!string.IsNullOrWhiteSpace(result.Output))
+            {
+                log.Info(result.Output.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+            {
+                log.Info(result.Error.Trim());
+            }
+
+            if (result.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"{ScCommand.ClassifyFailure(result.ExitCode)} {result.Error} {result.Output}");
+            }
+        }
+
+        private static ProcessResult RunScCapture(ScCommand command)
+        {
+            using Process process = Process.Start(CreateProcessStartInfo("sc.exe", command.Arguments))
+                ?? throw new InvalidOperationException("Failed to start sc.exe.");
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+            return new ProcessResult(process.ExitCode, output, error);
+        }
+
         private static ProcessResult RunProcessCapture(string fileName, string arguments)
         {
-            using Process process = Process.Start(new ProcessStartInfo
+            ProcessStartInfo startInfo = new()
             {
                 FileName = fileName,
                 Arguments = arguments,
@@ -830,12 +861,31 @@ internal static class Program
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true
-            }) ?? throw new InvalidOperationException($"Failed to start {fileName}.");
+            };
+            using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Failed to start {fileName}.");
 
             string output = process.StandardOutput.ReadToEnd();
             string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
             return new ProcessResult(process.ExitCode, output, error);
+        }
+
+        private static ProcessStartInfo CreateProcessStartInfo(string fileName, IReadOnlyList<string> arguments)
+        {
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = fileName,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            foreach (string argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+
+            return startInfo;
         }
 
         private static bool IsElevated()
