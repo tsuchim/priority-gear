@@ -37,6 +37,36 @@ Fix recorded after this attempt:
 - Status pipe readiness is retried before failure.
 - Verification setup includes service log tail diagnostics on failure.
 
+## Second Elevated Verification Attempt
+
+Date: 2026-05-13
+
+The second elevated verification setup run failed during `Install files` because the previously installed service was still running from `%ProgramFiles%\PriorityGear` and locked runtime files.
+
+Observed result:
+
+```text
+STEP: Install files
+FAIL: System.IO.IOException: The process cannot access the file
+'C:\Program Files\PriorityGear\clrjit.dll'
+because it is being used by another process.
+```
+
+Interpretation:
+
+- The previous service remained installed and running.
+- The running service locked installed runtime files such as `clrjit.dll`.
+- The setup tried to copy the new payload before stopping the existing service.
+- This was an install/update ordering defect, not a new status pipe defect.
+
+Fix recorded after this attempt:
+
+- Verification setup now performs `Existing service cleanup` before `Install files`.
+- Existing service state and PID are logged.
+- Running service is stopped through SCM before installed files are touched.
+- The setup waits for the service to reach `Stopped` and for the service process to exit when the PID is known.
+- Install directory cleanup reports locked file/directory paths explicitly.
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)

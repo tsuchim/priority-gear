@@ -100,6 +100,7 @@ internal static class Program
                 throw new FileNotFoundException($"Payload is incomplete: {string.Join(", ", missingFiles)}");
             }
 
+            await StopExistingServiceBeforeInstallAsync(plan, log);
             InstallPayload(payloadDirectory, plan, log);
             await InstallOrUpdateServiceAsync(plan, log);
             await StartServiceAsync(plan, log);
@@ -137,16 +138,72 @@ internal static class Program
             log.Info("Uninstall completed.");
         }
 
+        private static async Task StopExistingServiceBeforeInstallAsync(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Existing service cleanup");
+            if (!ServiceExists(plan.ServiceName))
+            {
+                log.Info("Existing service not found.");
+                return;
+            }
+
+            using ServiceController controller = new(plan.ServiceName);
+            controller.Refresh();
+            int? processId = TryGetServiceProcessId(plan.ServiceName, log);
+            log.Info("Existing service found.");
+            log.Info($"Existing service state: {controller.Status}");
+            log.Info($"Existing service PID: {processId?.ToString() ?? "<unknown>"}");
+
+            if (controller.Status == ServiceControllerStatus.Stopped)
+            {
+                log.Info("Existing service is already stopped.");
+                await WaitForServiceProcessExitAsync(processId, log);
+                return;
+            }
+
+            if (controller.Status == ServiceControllerStatus.StopPending)
+            {
+                log.Info("Existing service is already stopping.");
+            }
+            else
+            {
+                log.Info("Stop requested.");
+                controller.Stop();
+            }
+
+            controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+            controller.Refresh();
+            if (controller.Status != ServiceControllerStatus.Stopped)
+            {
+                throw new InvalidOperationException($"Existing service did not stop before payload update. State={controller.Status}; PID={processId?.ToString() ?? "<unknown>"}. Installed files were not overwritten.");
+            }
+
+            log.Info("Service stopped.");
+            await WaitForServiceProcessExitAsync(processId, log);
+        }
+
         private static void InstallPayload(string payloadDirectory, VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Install files");
             Directory.CreateDirectory(plan.InstallDirectory);
+            CleanInstallDirectory(plan.InstallDirectory, log);
             foreach (string source in Directory.EnumerateFiles(payloadDirectory, "*", SearchOption.AllDirectories))
             {
                 string relative = Path.GetRelativePath(payloadDirectory, source);
                 string destination = Path.Combine(plan.InstallDirectory, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                File.Copy(source, destination, overwrite: true);
+                try
+                {
+                    File.Copy(source, destination, overwrite: true);
+                }
+                catch (IOException ex)
+                {
+                    throw new IOException($"Failed to copy payload file. Existing service was expected to be stopped before copying. Locked or unavailable file: {destination}", ex);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    throw new UnauthorizedAccessException($"Failed to copy payload file due to access denial: {destination}", ex);
+                }
             }
 
             foreach (string requiredFile in VerificationPayload.RequiredFiles)
@@ -160,6 +217,43 @@ internal static class Program
 
             log.Info($"Payload installed to {plan.InstallDirectory}");
         }
+
+        private static void CleanInstallDirectory(string installDirectory, VerificationLog log)
+        {
+            log.Info($"Cleaning install directory: {installDirectory}");
+            if (!Directory.Exists(installDirectory))
+            {
+                return;
+            }
+
+            foreach (string file in Directory.EnumerateFiles(installDirectory))
+            {
+                try
+                {
+                    File.SetAttributes(file, FileAttributes.Normal);
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new IOException($"Failed to clean install directory. Locked file: {file}", ex);
+                }
+            }
+
+            foreach (string directory in Directory.EnumerateDirectories(installDirectory))
+            {
+                try
+                {
+                    Directory.Delete(directory, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new IOException($"Failed to clean install directory. Locked directory: {directory}", ex);
+                }
+            }
+
+            log.Info("Install directory cleanup completed.");
+        }
+
 
         private static async Task InstallOrUpdateServiceAsync(VerificationInstallPlan plan, VerificationLog log)
         {
@@ -434,6 +528,64 @@ internal static class Program
             return ServiceController.GetServices().Any(service => string.Equals(service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase));
         }
 
+        private static int? TryGetServiceProcessId(string serviceName, VerificationLog log)
+        {
+            try
+            {
+                ProcessResult result = RunProcessCapture("sc.exe", $"queryex \"{serviceName}\"");
+                if (result.ExitCode != 0)
+                {
+                    log.Info($"Could not query service PID. sc.exe exit={result.ExitCode}; {result.Error.Trim()}");
+                    return null;
+                }
+
+                foreach (string line in result.Output.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string trimmed = line.Trim();
+                    if (!trimmed.StartsWith("PID", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string[] parts = trimmed.Split(':', 2);
+                    if (parts.Length == 2 && int.TryParse(parts[1].Trim(), out int pid) && pid > 0)
+                    {
+                        return pid;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Info($"Could not query service PID: {ex.Message}");
+            }
+
+            return null;
+        }
+
+        private static async Task WaitForServiceProcessExitAsync(int? processId, VerificationLog log)
+        {
+            if (processId is null)
+            {
+                log.Info("Service process exit confirmation skipped because PID is unknown.");
+                return;
+            }
+
+            try
+            {
+                using Process process = Process.GetProcessById(processId.Value);
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+                log.Info("Service process exited.");
+            }
+            catch (ArgumentException)
+            {
+                log.Info("Service process already exited.");
+            }
+            catch (System.TimeoutException)
+            {
+                throw new InvalidOperationException($"Service reached Stopped state but process did not exit within timeout. PID={processId}. Installed files were not overwritten.");
+            }
+        }
+
         private static void AppendServiceDiagnostics(VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Failure diagnostics");
@@ -492,6 +644,26 @@ internal static class Program
 
         private static void RunProcess(string fileName, string arguments, VerificationLog log)
         {
+            ProcessResult result = RunProcessCapture(fileName, arguments);
+            log.Info($"{fileName} {arguments}");
+            if (!string.IsNullOrWhiteSpace(result.Output))
+            {
+                log.Info(result.Output.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+            {
+                log.Info(result.Error.Trim());
+            }
+
+            if (result.ExitCode != 0)
+            {
+                throw new InvalidOperationException($"{fileName} exited with code {result.ExitCode}: {result.Error} {result.Output}");
+            }
+        }
+
+        private static ProcessResult RunProcessCapture(string fileName, string arguments)
+        {
             using Process process = Process.Start(new ProcessStartInfo
             {
                 FileName = fileName,
@@ -505,21 +677,7 @@ internal static class Program
             string output = process.StandardOutput.ReadToEnd();
             string error = process.StandardError.ReadToEnd();
             process.WaitForExit();
-            log.Info($"{fileName} {arguments}");
-            if (!string.IsNullOrWhiteSpace(output))
-            {
-                log.Info(output.Trim());
-            }
-
-            if (!string.IsNullOrWhiteSpace(error))
-            {
-                log.Info(error.Trim());
-            }
-
-            if (process.ExitCode != 0)
-            {
-                throw new InvalidOperationException($"{fileName} exited with code {process.ExitCode}: {error} {output}");
-            }
+            return new ProcessResult(process.ExitCode, output, error);
         }
 
         private static bool IsElevated()
@@ -540,4 +698,6 @@ internal static class Program
                 ExitCode == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Error);
         }
     }
+
+    private sealed record ProcessResult(int ExitCode, string Output, string Error);
 }

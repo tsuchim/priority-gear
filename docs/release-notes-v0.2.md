@@ -19,6 +19,7 @@ PriorityGear v0.2 is planned as the first System Mode foundation.
 - Service-side file logging for pipe diagnostics under `%ProgramData%\PriorityGear\Logs`.
 - Hardened newline-delimited JSON pipe protocol with explicit empty/invalid response classification.
 - Status pipe readiness retry in the verification setup.
+- Verification setup reruns stop an existing service before updating `%ProgramFiles%\PriorityGear` payload files.
 
 ## Not Planned for v0.2
 
