@@ -85,7 +85,10 @@ internal static class Program
             log.Info($"Windows: {Environment.OSVersion.VersionString}");
             log.Info($"User: {WindowsIdentity.GetCurrent().Name}");
             log.Info($"Elevated: {IsElevated()}");
-            log.Info($"Install directory: {plan.InstallDirectory}");
+            log.Info($"Base install directory: {plan.BaseInstallDirectory}");
+            log.Info($"Version: {plan.Version}");
+            log.Info($"Version install directory: {plan.VersionInstallDirectory}");
+            log.Info($"New service binary path: {plan.ServiceExePath}");
             log.Info($"Service name: {plan.ServiceName}");
             if (!IsElevated())
             {
@@ -103,6 +106,7 @@ internal static class Program
             await StopExistingServiceBeforeInstallAsync(plan, log);
             InstallPayload(payloadDirectory, plan, log);
             await InstallOrUpdateServiceAsync(plan, log);
+            CleanupOldVersions(plan, log);
             await StartServiceAsync(plan, log);
             VerifyServiceConfiguration(plan, log);
 
@@ -185,12 +189,13 @@ internal static class Program
         private static void InstallPayload(string payloadDirectory, VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Install files");
-            Directory.CreateDirectory(plan.InstallDirectory);
-            CleanInstallDirectory(plan.InstallDirectory, log);
+            log.Info($"Base install directory: {plan.BaseInstallDirectory}");
+            log.Info($"Version install directory: {plan.VersionInstallDirectory}");
+            Directory.CreateDirectory(plan.VersionInstallDirectory);
             foreach (string source in Directory.EnumerateFiles(payloadDirectory, "*", SearchOption.AllDirectories))
             {
                 string relative = Path.GetRelativePath(payloadDirectory, source);
-                string destination = Path.Combine(plan.InstallDirectory, relative);
+                string destination = Path.Combine(plan.VersionInstallDirectory, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 try
                 {
@@ -208,56 +213,23 @@ internal static class Program
 
             foreach (string requiredFile in VerificationPayload.RequiredFiles)
             {
-                string installedFile = Path.Combine(plan.InstallDirectory, requiredFile);
+                string installedFile = Path.Combine(plan.VersionInstallDirectory, requiredFile);
                 if (!File.Exists(installedFile))
                 {
                     throw new FileNotFoundException($"Required installed file is missing: {installedFile}");
                 }
             }
 
-            log.Info($"Payload installed to {plan.InstallDirectory}");
-        }
-
-        private static void CleanInstallDirectory(string installDirectory, VerificationLog log)
-        {
-            log.Info($"Cleaning install directory: {installDirectory}");
-            if (!Directory.Exists(installDirectory))
-            {
-                return;
-            }
-
-            foreach (string file in Directory.EnumerateFiles(installDirectory))
-            {
-                try
-                {
-                    File.SetAttributes(file, FileAttributes.Normal);
-                    File.Delete(file);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    throw new IOException($"Failed to clean install directory. Locked file: {file}", ex);
-                }
-            }
-
-            foreach (string directory in Directory.EnumerateDirectories(installDirectory))
-            {
-                try
-                {
-                    Directory.Delete(directory, recursive: true);
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-                {
-                    throw new IOException($"Failed to clean install directory. Locked directory: {directory}", ex);
-                }
-            }
-
-            log.Info("Install directory cleanup completed.");
+            log.Info("Payload installed to version directory.");
         }
 
 
         private static async Task InstallOrUpdateServiceAsync(VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Install/update service");
+            string? previousPath = TryGetServiceImagePath(plan.ServiceName);
+            log.Info($"Previous service binary path: {previousPath ?? "<not installed>"}");
+            log.Info($"New service binary path: {plan.ServiceExePath}");
             if (ServiceExists(plan.ServiceName))
             {
                 await StopServiceAsync(plan, log);
@@ -285,6 +257,49 @@ internal static class Program
             log.Info($"Service status: {controller.Status}");
         }
 
+        private static void CleanupOldVersions(VerificationInstallPlan plan, VerificationLog log)
+        {
+            log.Section("Old version cleanup");
+            string versionsDirectory = Path.Combine(plan.BaseInstallDirectory, "versions");
+            log.Info($"Versions directory: {versionsDirectory}");
+            if (!Directory.Exists(versionsDirectory))
+            {
+                log.Info("No versions directory exists.");
+                return;
+            }
+
+            DirectoryInfo current = new(plan.VersionInstallDirectory);
+            List<DirectoryInfo> oldVersions = new DirectoryInfo(versionsDirectory)
+                .EnumerateDirectories()
+                .Where(directory => !string.Equals(directory.FullName, current.FullName, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(directory => directory.CreationTimeUtc)
+                .Skip(3)
+                .ToList();
+
+            if (oldVersions.Count == 0)
+            {
+                log.Info("No old versions selected for cleanup.");
+                return;
+            }
+
+            foreach (DirectoryInfo oldVersion in oldVersions)
+            {
+                try
+                {
+                    oldVersion.Delete(recursive: true);
+                    log.Info($"Deleted old version: {oldVersion.FullName}");
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    log.Info($"Warning: old version cleanup access denied: {oldVersion.FullName}; {ex.Message}");
+                }
+                catch (IOException ex)
+                {
+                    log.Info($"Warning: old version cleanup I/O failure: {oldVersion.FullName}; {ex.Message}");
+                }
+            }
+        }
+
         private static async Task StopServiceAsync(VerificationInstallPlan plan, VerificationLog log)
         {
             using ServiceController controller = new(plan.ServiceName);
@@ -300,15 +315,8 @@ internal static class Program
         private static void VerifyServiceConfiguration(VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Service configuration");
-            string keyPath = $@"SYSTEM\CurrentControlSet\Services\{plan.ServiceName}";
-            using Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(keyPath);
-            if (key is null)
-            {
-                throw new InvalidOperationException("Service registry key was not found.");
-            }
-
-            string imagePath = Convert.ToString(key.GetValue("ImagePath")) ?? string.Empty;
-            string objectName = Convert.ToString(key.GetValue("ObjectName")) ?? string.Empty;
+            string imagePath = TryGetServiceImagePath(plan.ServiceName) ?? string.Empty;
+            string objectName = TryGetServiceObjectName(plan.ServiceName) ?? string.Empty;
             log.Info($"Service binary path: {imagePath}");
             log.Info($"Service account: {objectName}");
 
@@ -361,7 +369,7 @@ internal static class Program
         private static async Task VerifyPriorityMutationAsync(VerificationInstallPlan plan, VerificationLog log)
         {
             log.Section("Priority mutation using TestTarget");
-            string targetExe = Path.Combine(plan.InstallDirectory, "PriorityGear.TestTarget.exe");
+            string targetExe = Path.Combine(plan.VersionInstallDirectory, "PriorityGear.TestTarget.exe");
             using Process target = Process.Start(new ProcessStartInfo
             {
                 FileName = targetExe,
@@ -454,7 +462,7 @@ internal static class Program
 
             File.WriteAllText(rulesPath, JsonSerializer.Serialize(rules, JsonOptions));
 
-            string targetExe = Path.Combine(plan.InstallDirectory, "PriorityGear.TestTarget.exe");
+            string targetExe = Path.Combine(plan.VersionInstallDirectory, "PriorityGear.TestTarget.exe");
             using Process target = Process.Start(new ProcessStartInfo
             {
                 FileName = targetExe,
@@ -526,6 +534,23 @@ internal static class Program
         private static bool ServiceExists(string serviceName)
         {
             return ServiceController.GetServices().Any(service => string.Equals(service.ServiceName, serviceName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string? TryGetServiceImagePath(string serviceName)
+        {
+            return TryGetServiceRegistryValue(serviceName, "ImagePath");
+        }
+
+        private static string? TryGetServiceObjectName(string serviceName)
+        {
+            return TryGetServiceRegistryValue(serviceName, "ObjectName");
+        }
+
+        private static string? TryGetServiceRegistryValue(string serviceName, string valueName)
+        {
+            string keyPath = $@"SYSTEM\CurrentControlSet\Services\{serviceName}";
+            using Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(keyPath);
+            return Convert.ToString(key?.GetValue(valueName));
         }
 
         private static int? TryGetServiceProcessId(string serviceName, VerificationLog log)

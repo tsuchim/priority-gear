@@ -55,9 +55,11 @@ The v0.2 foundation includes a local verification setup artifact, not a producti
 .\scripts\build-verification-installer.ps1
 ```
 
-The setup executable requests elevation, installs payload files under `%ProgramFiles%\PriorityGear`, registers `PriorityGear.Service` as LocalSystem, starts the service, checks status/admin pipes, launches `PriorityGear.TestTarget` without stealing foreground focus, applies and restores priority through the service path, validates temporary machine rules, and writes a detailed log under `%ProgramData%\PriorityGear\Logs`.
+The setup executable requests elevation, installs payload files under a versioned directory such as `%ProgramFiles%\PriorityGear\versions\<timestamp>`, registers `PriorityGear.Service` as LocalSystem with `binPath` pointing at that versioned service executable, starts the service, checks status/admin pipes, launches `PriorityGear.TestTarget` without stealing foreground focus, applies and restores priority through the service path, validates temporary machine rules, and writes a detailed log under `%ProgramData%\PriorityGear\Logs`.
 
 This artifact is for local verification only and is not published to GitHub Releases.
+
+Reruns do not delete or overwrite the active base install directory. Old version cleanup is best-effort and non-blocking.
 
 ## Service Diagnostics
 

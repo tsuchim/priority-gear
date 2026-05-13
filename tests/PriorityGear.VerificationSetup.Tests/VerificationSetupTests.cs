@@ -44,12 +44,15 @@ public sealed class VerificationSetupTests
     [TestMethod]
     public void DefaultInstallPlanUsesProgramFilesAndExpectedServiceName()
     {
-        VerificationInstallPlan plan = VerificationInstallPlan.CreateDefault();
+        VerificationInstallPlan plan = VerificationInstallPlan.Create("20260513-164500");
 
         Assert.AreEqual("PriorityGear.Service", plan.ServiceName);
         Assert.AreEqual("PriorityGear System Mode Service", plan.DisplayName);
-        StringAssert.Contains(plan.InstallDirectory, "PriorityGear");
+        Assert.AreEqual("20260513-164500", plan.Version);
+        StringAssert.Contains(plan.BaseInstallDirectory, "PriorityGear");
+        StringAssert.Contains(plan.VersionInstallDirectory, Path.Combine("versions", "20260513-164500"));
         StringAssert.Contains(plan.ServiceExePath, "PriorityGear.Service.exe");
+        StringAssert.Contains(plan.ServiceExePath, plan.VersionInstallDirectory);
         StringAssert.Contains(plan.LogDirectory, "PriorityGear");
     }
 

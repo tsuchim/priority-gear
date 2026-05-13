@@ -22,7 +22,13 @@ Do not start with critical system processes.
 
 The setup installs the service to `%ProgramFiles%\PriorityGear`, starts it as `LocalSystem`, checks the status pipe, checks the administrator mutation pipe, launches `PriorityGear.TestTarget` without foreground focus, changes its priority through the service path, restores it, validates temporary machine rules, and performs a no-mutation probe for denied/protected classification.
 
-Reruns are expected to be idempotent. The setup first checks for an existing `PriorityGear.Service`, stops it through SCM if it is running, waits for the service process to exit, then updates files under `%ProgramFiles%\PriorityGear`.
+Reruns are expected to be idempotent. The setup first checks for an existing `PriorityGear.Service`, stops it through SCM if it is running, waits for the service process to exit, then installs the new payload into a fresh versioned directory:
+
+```text
+%ProgramFiles%\PriorityGear\versions\<timestamp>
+```
+
+The service `binPath` is updated to the new version directory. Old version cleanup is best-effort and does not fail verification.
 
 If the setup fails, send back the log shown in the summary window. The setup also collects the service log tail from `%ProgramData%\PriorityGear\Logs\service-current.log` when status pipe readiness fails.
 

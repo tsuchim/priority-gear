@@ -67,6 +67,42 @@ Fix recorded after this attempt:
 - The setup waits for the service to reach `Stopped` and for the service process to exit when the PID is known.
 - Install directory cleanup reports locked file/directory paths explicitly.
 
+## Third Elevated Verification Attempt
+
+Date: 2026-05-13
+
+The third elevated verification setup run stopped the existing service successfully, but failed while cleaning the fixed install directory.
+
+Observed result:
+
+```text
+STEP: Existing service cleanup
+INFO: Existing service found.
+INFO: Existing service state: Running
+INFO: Existing service PID: 80832
+INFO: Stop requested.
+INFO: Service stopped.
+INFO: Service process already exited.
+
+STEP: Install files
+INFO: Cleaning install directory: C:\Program Files\PriorityGear
+FAIL: System.IO.IOException: Failed to clean install directory. Locked file: C:\Program Files\PriorityGear\clrjit.dll
+ ---> System.UnauthorizedAccessException: Access to the path 'C:\Program Files\PriorityGear\clrjit.dll' is denied.
+```
+
+Interpretation:
+
+- Existing service cleanup worked.
+- The fixed install directory still contained runtime files that could not be deleted.
+- The verification setup should not depend on deleting old runtime files.
+
+Fix recorded after this attempt:
+
+- Verification setup now installs each payload into a new versioned directory under `%ProgramFiles%\PriorityGear\versions\<timestamp>`.
+- The service `binPath` is updated to the new versioned `PriorityGear.Service.exe`.
+- The base install directory is not cleaned during the normal verification path.
+- Old version cleanup is best-effort and non-blocking.
+
 ## Environment
 
 - User privilege level: normal user (`IsElevated=false`)
