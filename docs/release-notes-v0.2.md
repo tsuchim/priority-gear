@@ -2,6 +2,17 @@
 
 PriorityGear v0.2 is the first System Mode foundation preview.
 
+## Published Preview
+
+`v0.2.0-preview.1` is published as a public prerelease:
+
+- Release: `https://github.com/tsuchim/priority-gear/releases/tag/v0.2.0-preview.1`
+- Artifact: `PriorityGear-v0.2.0-preview.1-system-mode-verification.zip`
+- SHA-256: `DCB51E61622E8C84C7CD8B935E10723797DD1C9422C271F8EAF8AE099583D740`
+- Tests at release preparation: 64 passed.
+- Elevated setup was not run by Codex at publish time.
+- Last confirmed elevated verification evidence remains setup version `20260514-004830`.
+
 ## In Scope
 
 - Windows Service host for administrator-approved machine control.

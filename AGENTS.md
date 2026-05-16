@@ -28,6 +28,14 @@
 - If review comments and checks are clear, normally merge pull requests into `main` using a regular merge commit. Keep `devel` aligned with `main` afterward using a normal merge, not history rewriting.
 - Do not squash, rebase, force-push, or rewrite protected branch history unless the user explicitly asks for that specific operation.
 
+## Release Workflow
+
+- Inspect actual GitHub state and repository files before giving release or post-release instructions. Do not rely on remembered state when local files or public GitHub state can be checked.
+- Preview tags matching `v*-preview.*` are intended to publish public prereleases automatically after mechanical gates pass.
+- No human visual review gate is required for preview tags after restore, build, tests, packaging, checksum, and artifact inspection pass.
+- Stable tags remain a separate explicit release decision.
+- Elevated setup verification is recorded evidence from a real machine. Do not run elevated setup inside GitHub Actions.
+
 ## Protected Surfaces
 
 Treat AGENTS files, runtime configuration, agent definitions, instructions, hooks, and skills as protected surfaces. Prefer structural enforcement and explicit approval over prompt-only warnings where available.

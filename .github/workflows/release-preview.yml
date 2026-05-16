@@ -1,0 +1,82 @@
+name: Release Preview
+
+on:
+  push:
+    tags:
+      - "v*-preview.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-preview:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore PriorityGear.slnx
+
+      - name: Build
+        run: dotnet build PriorityGear.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test PriorityGear.slnx --configuration Release --no-build
+
+      - name: Build verification setup
+        shell: pwsh
+        run: .\scripts\build-verification-installer.ps1
+
+      - name: Package preview release
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: >
+          .\scripts\package-preview-release.ps1
+          -TagName "$env:TAG_NAME"
+          -SetupDirectory ".\artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification"
+          -OutputDirectory ".\artifacts\release-preview"
+
+      - name: Inspect preview release artifacts
+        shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: >
+          .\scripts\inspect-release-artifacts.ps1
+          -ArtifactDirectory ".\artifacts\release-preview"
+          -TagName "$env:TAG_NAME"
+
+      - name: Publish public prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          $tag = $env:TAG_NAME
+          if ($tag -notmatch '^[A-Za-z0-9._-]+$' -or $tag.Contains("..")) {
+            throw "Tag name is not safe for preview release automation: $tag"
+          }
+
+          $notes = "docs/release-drafts/$tag.md"
+          if (!(Test-Path -LiteralPath $notes)) {
+            $notes = "docs/release-notes-v0.2.md"
+          }
+
+          $releaseArgs = @(
+            "release", "create", $tag,
+            "--prerelease",
+            "--target", "${{ github.sha }}",
+            "--title", "PriorityGear $tag - System Mode preview",
+            "--notes-file", $notes,
+            ".\artifacts\release-preview\PriorityGear-$tag-system-mode-verification.zip",
+            ".\artifacts\release-preview\PriorityGear-$tag-SHA256SUMS.txt"
+          )
+
+          gh @releaseArgs
