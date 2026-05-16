@@ -35,6 +35,7 @@
 - No human visual review gate is required for preview tags after restore, build, tests, packaging, checksum, and artifact inspection pass.
 - Stable tags remain a separate explicit release decision.
 - Elevated setup verification is recorded evidence from a real machine. Do not run elevated setup inside GitHub Actions.
+- Treat the second semantic-version component as the minor version. Do not increment it casually. For ordinary fixes, previews, and release refreshes, increment the third component or the preview/release suffix instead.
 
 ## Protected Surfaces
 

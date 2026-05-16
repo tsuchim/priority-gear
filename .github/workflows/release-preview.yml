@@ -60,19 +60,24 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           $tag = $env:TAG_NAME
-          if ($tag -notmatch '^[A-Za-z0-9._-]+$' -or $tag.Contains("..")) {
-            throw "Tag name is not safe for preview release automation: $tag"
+          if ($tag -notmatch '^v[0-9]+(\.[0-9]+)*-preview\.[0-9A-Za-z._-]+$' -or $tag.Contains("..") -or $tag.Contains("/") -or $tag.Contains("\")) {
+            throw "Tag does not match safe preview release pattern: $tag"
           }
 
           $notes = "docs/release-drafts/$tag.md"
           if (!(Test-Path -LiteralPath $notes)) {
-            $notes = "docs/release-notes-v0.2.md"
+            throw "Missing tag-specific release notes: $notes"
+          }
+
+          $existingRelease = gh release view $tag --json tagName 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release already exists for tag: $tag"
           }
 
           $releaseArgs = @(
             "release", "create", $tag,
+            "--verify-tag",
             "--prerelease",
-            "--target", "${{ github.sha }}",
             "--title", "PriorityGear $tag - System Mode preview",
             "--notes-file", $notes,
             ".\artifacts\release-preview\PriorityGear-$tag-system-mode-verification.zip",
