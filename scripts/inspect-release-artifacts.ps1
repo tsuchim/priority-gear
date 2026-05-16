@@ -8,6 +8,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($TagName -notmatch '^[A-Za-z0-9._-]+$' -or $TagName.Contains("..")) {
+    throw "TagName must be a safe filename segment containing only letters, digits, dot, underscore, or hyphen, and must not contain '..'."
+}
+
 $artifactPath = Resolve-Path -LiteralPath $ArtifactDirectory
 $zipName = "PriorityGear-$TagName-system-mode-verification.zip"
 $checksumName = "PriorityGear-$TagName-SHA256SUMS.txt"

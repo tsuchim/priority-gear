@@ -36,34 +36,47 @@ jobs:
 
       - name: Package preview release
         shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: >
           .\scripts\package-preview-release.ps1
-          -TagName "${{ github.ref_name }}"
+          -TagName "$env:TAG_NAME"
           -SetupDirectory ".\artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification"
           -OutputDirectory ".\artifacts\release-preview"
 
       - name: Inspect preview release artifacts
         shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: >
           .\scripts\inspect-release-artifacts.ps1
           -ArtifactDirectory ".\artifacts\release-preview"
-          -TagName "${{ github.ref_name }}"
+          -TagName "$env:TAG_NAME"
 
       - name: Publish public prerelease
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = $env:TAG_NAME
+          if ($tag -notmatch '^[A-Za-z0-9._-]+$' -or $tag.Contains("..")) {
+            throw "Tag name is not safe for preview release automation: $tag"
+          }
+
           $notes = "docs/release-drafts/$tag.md"
           if (!(Test-Path -LiteralPath $notes)) {
             $notes = "docs/release-notes-v0.2.md"
           }
 
-          gh release create $tag `
-            --prerelease `
-            --target ${{ github.sha }} `
-            --title "PriorityGear $tag - System Mode preview" `
-            --notes-file $notes `
-            .\artifacts\release-preview\PriorityGear-$tag-system-mode-verification.zip `
-            .\artifacts\release-preview\PriorityGear-$tag-SHA256SUMS.txt
+          $releaseArgs = @(
+            "release", "create", $tag,
+            "--prerelease",
+            "--target", "${{ github.sha }}",
+            "--title", "PriorityGear $tag - System Mode preview",
+            "--notes-file", $notes,
+            ".\artifacts\release-preview\PriorityGear-$tag-system-mode-verification.zip",
+            ".\artifacts\release-preview\PriorityGear-$tag-SHA256SUMS.txt"
+          )
+
+          gh @releaseArgs

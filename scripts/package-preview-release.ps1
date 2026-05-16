@@ -11,6 +11,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+if ($TagName -notmatch '^[A-Za-z0-9._-]+$' -or $TagName.Contains("..")) {
+    throw "TagName must be a safe filename segment containing only letters, digits, dot, underscore, or hyphen, and must not contain '..'."
+}
+
 $setupPath = Resolve-Path -LiteralPath $SetupDirectory
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $outputPath = Resolve-Path -LiteralPath $OutputDirectory
