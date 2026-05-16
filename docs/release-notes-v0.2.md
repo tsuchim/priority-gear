@@ -13,9 +13,9 @@ PriorityGear v0.2 is the first System Mode foundation preview.
 - Elevated setup was not run by Codex at publish time.
 - Last confirmed elevated verification evidence remains setup version `20260514-004830`.
 
-## Next Preview Draft
+## Next Release Draft
 
-`v0.2.1-preview.1` is prepared as a small preview update after `v0.2.0-preview.1`. It is intended to exercise the automated preview release path and polish operator-facing System Mode status visibility for already-supported service data. It does not expand arbitrary shared-host `svchost.exe` mutation support and is not the final stable `v0.2.0` release.
+`v0.2.1` is prepared as a small update after `v0.2.0-preview.1`. It is intended to exercise the automated release path for plain semantic version tags and polish operator-facing System Mode status visibility for already-supported service data. It does not expand arbitrary shared-host `svchost.exe` mutation support and is not the final stable `v0.2.0` release.
 
 ## In Scope
 

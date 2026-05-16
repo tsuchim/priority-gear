@@ -31,9 +31,11 @@
 ## Release Workflow
 
 - Inspect actual GitHub state and repository files before giving release or post-release instructions. Do not rely on remembered state when local files or public GitHub state can be checked.
-- Preview tags matching `v*-preview.*` are intended to publish public prereleases automatically after mechanical gates pass.
-- No human visual review gate is required for preview tags after restore, build, tests, packaging, checksum, and artifact inspection pass.
-- Stable tags remain a separate explicit release decision.
+- Release tags use plain semantic versions such as `v0.2.1`.
+- Do not add `preview`, `rc`, or similar suffixes to the version tag unless the user explicitly asks.
+- Release workflow publishes plain semver tags after mechanical gates pass.
+- No human visual review gate is required after restore, build, tests, packaging, checksum, and artifact inspection pass.
+- Stable/final meaning is controlled by documented scope and release notes, not by adding suffixes to the version string.
 - Elevated setup verification is recorded evidence from a real machine. Do not run elevated setup inside GitHub Actions.
 - Treat the second semantic-version component as the minor version. Do not increment it casually. For ordinary fixes, previews, and release refreshes, increment the third component or the preview/release suffix instead.
 
