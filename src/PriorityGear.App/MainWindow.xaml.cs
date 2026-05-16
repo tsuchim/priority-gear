@@ -170,7 +170,7 @@ public partial class MainWindow : Window
             : $"{discovery.ReturnedGroupCount}/{discovery.TotalDiscoveredGroupCount} returned";
 
         return
-            $"System Mode: running={status.ServiceRunning}, configured={status.ConfiguredServiceAccount}, identity={status.ProcessIdentity}, SeDebug={status.SeDebugPrivilege.Status}{Environment.NewLine}" +
+            $"System Mode: running={status.ServiceRunning}, configured={status.ConfiguredServiceAccount}, identity={status.ProcessIdentity}, network={status.NetworkIdentity}, SeDebug={status.SeDebugPrivilege.Status}{Environment.NewLine}" +
             $"Service: versionPath={versionPath}, binary={status.ServiceBinaryPath}{Environment.NewLine}" +
             $"Monitor: running={monitor.MonitorRunning}, rules={monitor.LoadedMachineRuleCount}, approved={monitor.EnabledApprovedRuleCount}, matched={monitor.MatchedProcessCount}, lastScan={lastScan}, results={monitor.LastApplySuccesses}/{monitor.LastApplyFailures}{Environment.NewLine}" +
             $"Discovery: available={discovery.Available}, services={discovery.RunningServiceCount}, hosts={discovery.ServiceHostProcessCount}, shared={discovery.SharedHostProcessCount}, {discoveryCompleteness}, limit={discovery.Limit}";

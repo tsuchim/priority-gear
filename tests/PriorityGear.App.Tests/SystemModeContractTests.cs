@@ -73,6 +73,7 @@ public sealed class SystemModeContractTests
             ServiceRunning = true,
             ConfiguredServiceAccount = "LocalSystem",
             ProcessIdentity = @"NT AUTHORITY\SYSTEM",
+            NetworkIdentity = "HP45L$",
             ServiceBinaryPath = @"C:\Program Files\PriorityGear\versions\20260514-004830\PriorityGear.Service.exe",
             ServiceVersionDirectory = @"C:\Program Files\PriorityGear\versions\20260514-004830",
             SeDebugPrivilege = new PrivilegeStatusDto { Status = "Success" },
@@ -102,6 +103,7 @@ public sealed class SystemModeContractTests
 
         Assert.Contains("configured=LocalSystem", text);
         Assert.Contains("identity=NT AUTHORITY\\SYSTEM", text);
+        Assert.Contains("network=HP45L$", text);
         Assert.Contains("versions\\20260514-004830", text);
         Assert.Contains("matched=1", text);
         Assert.Contains("services=120", text);
