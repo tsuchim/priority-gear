@@ -13,6 +13,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>..\..\assets\prioritygear.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\assets\prioritygear.ico" Link="Assets\prioritygear.ico" />
+  </ItemGroup>
 
 </Project>

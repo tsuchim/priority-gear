@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -66,7 +67,7 @@ public partial class MainWindow : Window
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = "PriorityGear",
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = LoadTrayIcon(),
             Visible = true,
             ContextMenuStrip = new Forms.ContextMenuStrip()
         };
@@ -75,6 +76,20 @@ public partial class MainWindow : Window
         _notifyIcon.ContextMenuStrip.Items.Add("Stop monitoring", null, (_, _) => Dispatcher.Invoke(StopMonitoring));
         _notifyIcon.ContextMenuStrip.Items.Add("Exit", null, (_, _) => Dispatcher.Invoke(Close));
         _notifyIcon.DoubleClick += (_, _) => Dispatcher.Invoke(ShowFromTray);
+    }
+
+    private static System.Drawing.Icon LoadTrayIcon()
+    {
+        System.Windows.Resources.StreamResourceInfo? resource = System.Windows.Application.GetResourceStream(
+            new Uri("pack://application:,,,/Assets/prioritygear.ico"));
+        if (resource?.Stream is null)
+        {
+            return System.Drawing.SystemIcons.Application;
+        }
+
+        using Stream stream = resource.Stream;
+        using System.Drawing.Icon icon = new(stream);
+        return (System.Drawing.Icon)icon.Clone();
     }
 
     private void ShowFromTray()
