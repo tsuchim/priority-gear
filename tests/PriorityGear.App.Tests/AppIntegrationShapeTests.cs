@@ -18,6 +18,19 @@ public sealed class AppIntegrationShapeTests
         Assert.DoesNotContain("PriorityRuleEngine _ruleEngine", source);
     }
 
+    [Fact]
+    public void AppProject_UsesPriorityGearIconForExecutableAndTrayResource()
+    {
+        string root = FindRepositoryRoot();
+        string project = File.ReadAllText(Path.Combine(root, "src", "PriorityGear.App", "PriorityGear.App.csproj"));
+        string window = File.ReadAllText(Path.Combine(root, "src", "PriorityGear.App", "MainWindow.xaml"));
+
+        Assert.Contains("<ApplicationIcon>..\\..\\assets\\prioritygear.ico</ApplicationIcon>", project);
+        Assert.Contains("Link=\"Assets\\prioritygear.ico\"", project);
+        Assert.Contains("Icon=\"Assets/prioritygear.ico\"", window);
+        Assert.True(File.Exists(Path.Combine(root, "assets", "prioritygear.ico")));
+    }
+
     private static string FindRepositoryRoot()
     {
         string? directory = AppContext.BaseDirectory;

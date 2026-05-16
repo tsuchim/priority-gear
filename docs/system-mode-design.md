@@ -73,6 +73,8 @@ The service includes a conservative machine-rule monitor. It loads `%ProgramData
 
 The monitor records last scan time, rule counts, matched process count, bounded per-rule summaries, and bounded per-process apply results. Status pipe responses include these summaries without dumping unbounded process lists.
 
+The GUI System Mode status panel is read-only. It displays only data already exposed by the status pipe, including service identity, service binary/version path, `SeDebugPrivilege`, monitor summary, and service-process discovery truncation metadata. It does not provide shared-host mutation controls.
+
 Monitor runtime summaries are current-scan summaries. Reloading rules prunes deleted rule IDs from runtime state, scans clear exited process entries, and unchanged already-applied priorities are reported as `AlreadyApplied` without calling `SetPriorityClass` again.
 
 Machine rule mutation is available only on the administrator pipe. The service refuses to overwrite malformed machine rule JSON during mutation.

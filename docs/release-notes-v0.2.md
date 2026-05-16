@@ -13,6 +13,10 @@ PriorityGear v0.2 is the first System Mode foundation preview.
 - Elevated setup was not run by Codex at publish time.
 - Last confirmed elevated verification evidence remains setup version `20260514-004830`.
 
+## Next Preview Draft
+
+`v0.2.1-preview.1` is prepared as a small preview update after `v0.2.0-preview.1`. It is intended to exercise the automated preview release path and polish operator-facing System Mode status visibility for already-supported service data. It does not expand arbitrary shared-host `svchost.exe` mutation support and is not the final stable `v0.2.0` release.
+
 ## In Scope
 
 - Windows Service host for administrator-approved machine control.
@@ -48,6 +52,7 @@ PriorityGear v0.2 is the first System Mode foundation preview.
 - Shared-host dry-run/reject verification without mutating real shared hosts.
 - Faster service discovery using SCM `EnumServicesStatusEx` instead of repeated `sc.exe queryex` calls.
 - Minimal GUI System Mode status visibility.
+- GUI System Mode status visibility for service binary/version path, configured account, process identity, `SeDebugPrivilege`, machine-rule monitor summary, and service-process discovery truncation metadata.
 - Versioned install/update layout for local verification.
 - Explicit cleanup expectations for temporary test service and temporary machine rules.
 

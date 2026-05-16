@@ -79,6 +79,8 @@ public sealed class ServiceCommandHandler(
                 ConfiguredServiceAccount = "LocalSystem",
                 ProcessIdentity = System.Security.Principal.WindowsIdentity.GetCurrent().Name,
                 NetworkIdentity = Environment.UserName,
+                ServiceBinaryPath = Environment.ProcessPath ?? string.Empty,
+                ServiceVersionDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? string.Empty,
                 SeDebugPrivilege = new PrivilegeStatusDto
                 {
                     Attempted = privilege.Attempted,

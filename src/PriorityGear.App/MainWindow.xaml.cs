@@ -149,13 +149,31 @@ public partial class MainWindow : Window
         ServiceResponse response = await _systemModeClient.GetStatusAsync(TimeSpan.FromSeconds(2));
         if (response.Succeeded && response.Status is not null)
         {
-            SystemModeStatusText.Text =
-                $"System Mode: running={response.Status.ServiceRunning}, configured={response.Status.ConfiguredServiceAccount}, identity={response.Status.ProcessIdentity}, network={response.Status.NetworkIdentity}, SeDebug={response.Status.SeDebugPrivilege.Status}, monitor={response.Status.MachineRuleMonitor.MonitorRunning}, rules={response.Status.MachineRuleMonitor.LoadedMachineRuleCount}, approved={response.Status.MachineRuleMonitor.EnabledApprovedRuleCount}, lastScan={response.Status.MachineRuleMonitor.LastScanTime?.LocalDateTime.ToString() ?? "never"}, results={response.Status.MachineRuleMonitor.LastApplySuccesses}/{response.Status.MachineRuleMonitor.LastApplyFailures}";
+            SystemModeStatusText.Text = FormatSystemModeStatus(response.Status);
         }
         else
         {
             SystemModeStatusText.Text = $"System Mode: unavailable ({response.Message})";
         }
+    }
+
+    public static string FormatSystemModeStatus(ServiceStatusDto status)
+    {
+        MachineRuleMonitorStatusDto monitor = status.MachineRuleMonitor;
+        ServiceProcessDiscoveryStatusDto discovery = status.ServiceProcessDiscovery;
+        string lastScan = monitor.LastScanTime?.LocalDateTime.ToString() ?? "never";
+        string versionPath = string.IsNullOrWhiteSpace(status.ServiceVersionDirectory)
+            ? status.ServiceBinaryPath
+            : status.ServiceVersionDirectory;
+        string discoveryCompleteness = discovery.Truncated
+            ? $"{discovery.ReturnedGroupCount}/{discovery.TotalDiscoveredGroupCount} returned, truncated"
+            : $"{discovery.ReturnedGroupCount}/{discovery.TotalDiscoveredGroupCount} returned";
+
+        return
+            $"System Mode: running={status.ServiceRunning}, configured={status.ConfiguredServiceAccount}, identity={status.ProcessIdentity}, SeDebug={status.SeDebugPrivilege.Status}{Environment.NewLine}" +
+            $"Service: versionPath={versionPath}, binary={status.ServiceBinaryPath}{Environment.NewLine}" +
+            $"Monitor: running={monitor.MonitorRunning}, rules={monitor.LoadedMachineRuleCount}, approved={monitor.EnabledApprovedRuleCount}, matched={monitor.MatchedProcessCount}, lastScan={lastScan}, results={monitor.LastApplySuccesses}/{monitor.LastApplyFailures}{Environment.NewLine}" +
+            $"Discovery: available={discovery.Available}, services={discovery.RunningServiceCount}, hosts={discovery.ServiceHostProcessCount}, shared={discovery.SharedHostProcessCount}, {discoveryCompleteness}, limit={discovery.Limit}";
     }
 
     private void RuleGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
