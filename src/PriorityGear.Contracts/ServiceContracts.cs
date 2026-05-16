@@ -73,6 +73,10 @@ public sealed class ServiceStatusDto
 
     public string NetworkIdentity { get; set; } = string.Empty;
 
+    public string ServiceBinaryPath { get; set; } = string.Empty;
+
+    public string ServiceVersionDirectory { get; set; } = string.Empty;
+
     public PrivilegeStatusDto SeDebugPrivilege { get; set; } = new();
 
     public string AuthorizationMode { get; set; } = "AdministratorsOnlyForMutation";

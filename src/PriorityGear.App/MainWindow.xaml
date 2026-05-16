@@ -31,7 +31,7 @@
         <Border Grid.Row="1" BorderBrush="#CCCCCC" BorderThickness="1" Padding="8" Margin="0,0,0,8">
             <DockPanel>
                 <Button x:Name="RefreshServiceButton" Content="System Mode status" Width="150" Margin="0,0,8,0" Click="RefreshServiceButton_Click" DockPanel.Dock="Left" />
-                <TextBlock x:Name="SystemModeStatusText" VerticalAlignment="Center" Text="System Mode: unknown. Mutating service commands are admin-only." />
+                <TextBlock x:Name="SystemModeStatusText" VerticalAlignment="Center" TextWrapping="Wrap" Text="System Mode: unknown. Mutating service commands are admin-only." />
             </DockPanel>
         </Border>
 
