@@ -16,6 +16,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\prioritygear.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

@@ -40,6 +40,7 @@ internal static class Program
         {
             _args = args;
             Text = "PriorityGear System Mode Verification";
+            Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Width = 900;
             Height = 650;
             Controls.Add(_logBox);
