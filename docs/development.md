@@ -63,7 +63,7 @@ Compress-Archive -Path artifacts/publish/PriorityGear-v0.1-win-x64-self-containe
   -Force
 ```
 
-The CI workflow is restore/build/test only. Preview release packaging is handled by the tag-driven `Release Preview` workflow and the scripts under `scripts/`.
+The CI workflow is restore/build/test only. Release packaging is handled by the tag-driven `Release` workflow and the scripts under `scripts/`.
 
 ## Branches
 

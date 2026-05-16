@@ -8,8 +8,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if ($TagName -notmatch '^v[0-9]+(\.[0-9]+)*-preview\.[0-9A-Za-z._-]+$' -or $TagName.Contains("..")) {
-    throw "TagName must match v<version>-preview.<suffix> and contain only safe filename characters."
+if ($TagName -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$' -or $TagName.Contains("..") -or $TagName.Contains("/") -or $TagName.Contains("\")) {
+    throw "TagName must match v<major>.<minor>.<patch> and contain only safe filename characters."
 }
 
 $artifactPath = Resolve-Path -LiteralPath $ArtifactDirectory

@@ -8,7 +8,7 @@ if (!(Test-Path -LiteralPath $ciPath)) {
 }
 
 if (!(Test-Path -LiteralPath $releasePath)) {
-    throw "Missing release preview workflow: $releasePath"
+    throw "Missing release workflow: $releasePath"
 }
 
 $ci = Get-Content -LiteralPath $ciPath -Raw
@@ -30,28 +30,49 @@ foreach ($needle in $forbiddenCi) {
 }
 
 $requiredRelease = @(
-    "v*-preview.*",
+    "v*.*.*",
+    "^v[0-9]+\.[0-9]+\.[0-9]+$",
     "--verify-tag",
+    'docs/release-drafts/$tag.md',
     "package-preview-release.ps1",
     "inspect-release-artifacts.ps1"
 )
 
 foreach ($needle in $requiredRelease) {
     if (!$release.Contains($needle)) {
-        throw "Release Preview workflow is missing required text: $needle"
+        throw "Release workflow is missing required text: $needle"
     }
 }
 
 if (!$release.Contains('"release", "create"') -or !$release.Contains("gh @releaseArgs")) {
-    throw "Release Preview workflow must create releases through a gh argument array."
+    throw "Release workflow must create releases through a gh argument array."
 }
 
-if ($release.Contains("v0.2.0-preview.1")) {
-    throw "Release Preview workflow contains a stale fixed preview tag."
+$staleTags = @(
+    "v0.2.0-preview.1",
+    "v0.2.1-preview.1"
+)
+
+foreach ($tag in $staleTags) {
+    if ($release.Contains($tag)) {
+        throw "Release workflow contains a stale fixed tag: $tag"
+    }
+}
+
+if ($release.Contains("v*-preview.*")) {
+    throw "Release workflow still requires preview-suffixed tags."
+}
+
+if ($release.Contains("--prerelease") -or $release.Contains("--draft")) {
+    throw "Release workflow should publish a normal public release for plain semver tags."
+}
+
+if (!$release.Contains("Tag does not match safe release pattern")) {
+    throw "Release workflow must reject non-semver and preview-suffixed tags with the safe release regex."
 }
 
 if ($release.Contains("--target")) {
-    throw "Release Preview workflow should rely on the pushed tag and --verify-tag, not --target."
+    throw "Release workflow should rely on the pushed tag and --verify-tag, not --target."
 }
 
 Write-Host "Workflow release state check passed."

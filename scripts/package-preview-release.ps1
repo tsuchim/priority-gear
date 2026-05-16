@@ -11,8 +11,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if ($TagName -notmatch '^v[0-9]+(\.[0-9]+)*-preview\.[0-9A-Za-z._-]+$' -or $TagName.Contains("..")) {
-    throw "TagName must match v<version>-preview.<suffix> and contain only safe filename characters."
+if ($TagName -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$' -or $TagName.Contains("..") -or $TagName.Contains("/") -or $TagName.Contains("\")) {
+    throw "TagName must match v<major>.<minor>.<patch> and contain only safe filename characters."
 }
 
 $setupPath = Resolve-Path -LiteralPath $SetupDirectory
@@ -44,6 +44,6 @@ Compress-Archive -Path (Join-Path $setupPath "*") -DestinationPath $zipPath -For
 $hash = Get-FileHash -LiteralPath $zipPath -Algorithm SHA256
 Set-Content -LiteralPath $checksumPath -Value "$($hash.Hash)  $zipName" -Encoding ascii
 
-Write-Host "Preview release artifacts created:"
+Write-Host "Release artifacts created:"
 Write-Host "  $zipPath"
 Write-Host "  $checksumPath"

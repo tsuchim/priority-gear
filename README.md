@@ -59,7 +59,7 @@ The v0.2 preview contains the first service-side machine-rule monitor. Machine r
 
 v0.2 is in scope for LocalSystem service install/update verification, status/admin named pipes, service-side priority mutation, machine-rule monitoring, service-process discovery, service-name machine rules, CLI administration, and minimal GUI System Mode status visibility.
 
-The next preview update, `v0.2.1-preview.1`, is scoped as a small polish release. It does not expand service mutation support; it improves System Mode status visibility for already-exposed service data and exercises the automated preview release path.
+The next update, `v0.2.1`, is scoped as a small polish release. It does not expand service mutation support; it improves System Mode status visibility for already-exposed service data and exercises the automated release path for plain semantic version tags.
 
 v0.2 is out of scope for Store/winget distribution, signing, production MSI/MSIX packaging, GUI machine-rule editing, System Mode active-window priority switching, arbitrary shared-host mutation, CPU affinity, I/O priority, EcoQoS, Realtime priority UI, drivers, telemetry, network features, and updaters.
 
