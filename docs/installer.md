@@ -1,13 +1,13 @@
 # PriorityGear Installer
 
-PriorityGear `v0.3.0` introduces the formal GitHub release installer path.
+PriorityGear `v0.3.1` is the current formal GitHub release installer path. It republishes the installer from the post-adversarial-gate `main` state.
 
 ## Artifact
 
 The primary release artifact is:
 
 ```text
-PriorityGear-v0.3.0-win-x64-installer.zip
+PriorityGear-v0.3.1-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI app, CLI, and System Mode service binaries.
@@ -17,7 +17,7 @@ The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI
 Double-click `PriorityGear.Setup.exe` and approve UAC. The installer:
 
 - requires elevation;
-- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.0`;
+- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.1`;
 - configures `PriorityGear.Service` as LocalSystem;
 - starts or restarts the service;
 - confirms the status pipe responds;

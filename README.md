@@ -33,14 +33,14 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.3.0 System Mode Installer Release
+## v0.3.1 System Mode Installer Release
 
-`v0.3.0` is the current planned GitHub release for the formal System Mode installer. The installer is the normal GitHub-distributed install path for PriorityGear.
+`v0.3.1` is the current GitHub release for the formal System Mode installer. It republishes the installer from the post-adversarial-gate `main` state. The installer is the normal GitHub-distributed install path for PriorityGear.
 
 The release artifact is:
 
 ```text
-PriorityGear-v0.3.0-win-x64-installer.zip
+PriorityGear-v0.3.1-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to install or update PriorityGear. The installer is AS IS and unsigned unless signing is explicitly added in a later release.
@@ -48,7 +48,7 @@ The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to in
 To build the same installer artifact locally:
 
 ```powershell
-.\scripts\package-release.ps1 -TagName "v0.3.0" -OutputDirectory ".\artifacts\release-test-v0.3.0"
+.\scripts\package-release.ps1 -TagName "v0.3.1" -OutputDirectory ".\artifacts\release-test-v0.3.1"
 ```
 
 The installer installs the GUI app and configures `PriorityGear.Service` as a LocalSystem Windows Service under a versioned directory below `%ProgramFiles%\PriorityGear\versions`. It preserves `%ProgramData%\PriorityGear\rules.machine.json` and logs under `%ProgramData%\PriorityGear\Logs`.
@@ -77,12 +77,12 @@ Post-verification state: `PriorityGear.Service` may remain installed/running, te
 
 ## Artifacts
 
-### v0.3.0 GitHub Installer
+### v0.3.1 GitHub Installer
 
-The current planned GitHub release artifact is:
+The current GitHub release artifact is:
 
 ```text
-PriorityGear-v0.3.0-win-x64-installer.zip
+PriorityGear-v0.3.1-win-x64-installer.zip
 ```
 
 It contains `PriorityGear.Setup.exe` and the service/app/CLI payload needed for install or update after UAC approval. It is not Store, winget, MSI, MSIX, or signed packaging.
