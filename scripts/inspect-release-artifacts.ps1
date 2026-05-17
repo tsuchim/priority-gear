@@ -13,7 +13,7 @@ if ($TagName -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$' -or $TagName.Contains("..") -
 }
 
 $artifactPath = Resolve-Path -LiteralPath $ArtifactDirectory
-$zipName = "PriorityGear-$TagName-system-mode-verification.zip"
+$zipName = "PriorityGear-$TagName-win-x64-installer.zip"
 $checksumName = "PriorityGear-$TagName-SHA256SUMS.txt"
 $zipPath = Join-Path $artifactPath $zipName
 $checksumPath = Join-Path $artifactPath $checksumName
@@ -42,17 +42,34 @@ $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try {
     $entries = @($zip.Entries | ForEach-Object { $_.FullName })
     $required = @(
-        "PriorityGear.VerificationSetup.exe",
+        "PriorityGear.Setup.exe",
+        "setup-version.txt",
         "payload/PriorityGear.Service.exe",
         "payload/PriorityGear.Cli.exe",
-        "payload/PriorityGear.App.exe",
-        "payload/PriorityGear.TestTarget.exe"
+        "payload/PriorityGear.App.exe"
     )
 
     foreach ($entry in $required) {
         if ($entries -notcontains $entry) {
             throw "Zip is missing required entry: $entry"
         }
+    }
+
+    $versionEntry = $zip.GetEntry("setup-version.txt")
+    if ($null -eq $versionEntry) {
+        throw "Zip is missing setup-version.txt."
+    }
+
+    $reader = New-Object System.IO.StreamReader($versionEntry.Open())
+    try {
+        $setupVersion = $reader.ReadToEnd().Trim()
+    }
+    finally {
+        $reader.Dispose()
+    }
+
+    if ($setupVersion -ne $TagName) {
+        throw "setup-version.txt must match tag $TagName but was $setupVersion."
     }
 
     $forbidden = $entries | Where-Object {

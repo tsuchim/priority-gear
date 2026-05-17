@@ -34,7 +34,7 @@ $requiredRelease = @(
     "^v[0-9]+\.[0-9]+\.[0-9]+$",
     "--verify-tag",
     'docs/release-drafts/$tag.md',
-    "package-preview-release.ps1",
+    "package-release.ps1",
     "inspect-release-artifacts.ps1"
 )
 
@@ -73,6 +73,10 @@ if (!$release.Contains("Tag does not match safe release pattern")) {
 
 if ($release.Contains("--target")) {
     throw "Release workflow should rely on the pushed tag and --verify-tag, not --target."
+}
+
+if (!$release.Contains("win-x64-installer.zip")) {
+    throw "Release workflow must publish the formal installer artifact."
 }
 
 Write-Host "Workflow release state check passed."

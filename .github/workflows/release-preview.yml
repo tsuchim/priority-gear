@@ -30,18 +30,13 @@ jobs:
       - name: Test
         run: dotnet test PriorityGear.slnx --configuration Release --no-build
 
-      - name: Build verification setup
-        shell: pwsh
-        run: .\scripts\build-verification-installer.ps1
-
       - name: Package release
         shell: pwsh
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: >
-          .\scripts\package-preview-release.ps1
+          .\scripts\package-release.ps1
           -TagName "$env:TAG_NAME"
-          -SetupDirectory ".\artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification"
           -OutputDirectory ".\artifacts\release-preview"
 
       - name: Inspect release artifacts
@@ -77,9 +72,9 @@ jobs:
           $releaseArgs = @(
             "release", "create", $tag,
             "--verify-tag",
-            "--title", "PriorityGear $tag - System Mode status update",
+            "--title", "PriorityGear $tag - GitHub installer release",
             "--notes-file", $notes,
-            ".\artifacts\release-preview\PriorityGear-$tag-system-mode-verification.zip",
+            ".\artifacts\release-preview\PriorityGear-$tag-win-x64-installer.zip",
             ".\artifacts\release-preview\PriorityGear-$tag-SHA256SUMS.txt"
           )
 
