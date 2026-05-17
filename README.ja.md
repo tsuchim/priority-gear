@@ -79,7 +79,7 @@ v0.2 の範囲は LocalSystem service の検証用 install/update、status/admin
 
 `v0.2.0-preview.1` は System Mode foundation の過去の public prerelease として残ります。
 
-Store 配布、署名、本番 MSI/MSIX packaging、GUI machine-rule editing、System Mode の active-window priority switching、任意の shared-host mutation、CPU affinity、I/O priority、EcoQoS、Realtime priority UI、driver、telemetry、network、updater は範囲外です。winget package は `microsoft/winget-pkgs` PR が validation / merge されるまで利用可能とは扱いません。
+Store 配布、署名、本番 MSI/MSIX packaging、GUI machine-rule editing、System Mode の active-window priority switching、任意の shared-host mutation、CPU affinity、I/O priority、EcoQoS、Realtime priority UI、driver、telemetry、network、updater は範囲外です。winget package は [microsoft/winget-pkgs#375643](https://github.com/microsoft/winget-pkgs/pull/375643) に submitted ですが、Microsoft validation / merge が完了して `winget search` で見つかるまでは利用可能とは扱いません。
 
 検証後の状態として、`PriorityGear.Service` は install/running のまま残る場合があります。一時的な `PriorityGear.TestTarget.Service` と temporary machine rules は削除され、`%ProgramData%\PriorityGear\Logs` は残ります。`%ProgramData%\PriorityGear\rules.machine.json` は保持または復元されます。古い version directory cleanup は best-effort です。
 
