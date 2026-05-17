@@ -41,11 +41,17 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.2 System Mode Preview
+## v0.2.1 System Mode Release
 
-`v0.2.0-preview.1` は public prerelease として公開済みです。これは System Mode preview であり、stable `v0.2.0` ではありません。
+`v0.2.1` は System Mode status update の現在の public release です。System Mode 検証用 setup と v0.2.1 の status 表示改善を含みます。
 
-prerelease には検証用 setup artifact が含まれます。この setup は本番インストーラーではありません。
+公開 artifact は次です。
+
+```text
+PriorityGear-v0.2.1-system-mode-verification.zip
+```
+
+この setup は本番インストーラーではありません。
 
 同じ検証用 setup をローカルで作成する場合:
 
@@ -63,11 +69,13 @@ setup は `%ProgramFiles%\PriorityGear` に検証用 payload を配置し、Loca
 
 v0.2 検証では、対話ユーザー側の TestTarget、machine-rule monitor path、一時的な LocalSystem-owned `PriorityGear.TestTarget.Service`、targeted service discovery、その安全な temporary service への service-name machine rule が成功済みです。SCM API discovery 後、検証全体はテスト環境で約 8 秒になっています。
 
-v0.2 preview には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。SCM API ベースの service-process discovery と service-name rule も入りましたが、shared-host safety gate 付きです。shared-host `svchost.exe` の dry-run / reject は検証済みですが、任意の `svchost.exe` 制御はまだ主張しません。
+v0.2 System Mode line には最初の service-side machine-rule monitor が入っています。machine rule は `%ProgramData%\PriorityGear\rules.machine.json` に保存され、有効かつ管理者承認済みの rule だけが適用対象です。管理は admin pipe / CLI 経由です。SCM API ベースの service-process discovery と service-name rule も入りましたが、shared-host safety gate 付きです。shared-host `svchost.exe` の dry-run / reject は検証済みですが、任意の `svchost.exe` 制御はまだ主張しません。
 
 v0.2 の範囲は LocalSystem service の検証用 install/update、status/admin named pipe、service 経由の priority mutation、machine-rule monitor、service-process discovery、service-name machine rule、CLI 管理、最小限の GUI System Mode status 表示です。
 
-次の update である `v0.2.1` は小さな polish release として扱います。service mutation support は広げず、既に service が公開している情報の System Mode status 表示を改善し、plain semantic version tag 用の自動 release path を使うことを目的にします。
+`v0.2.1` は小さな polish release です。service mutation support は広げず、既に service が公開している情報の System Mode status 表示を改善し、plain semantic version tag 用の自動 release path を使うことを目的にします。
+
+`v0.2.0-preview.1` は System Mode foundation の過去の public prerelease として残ります。
 
 v0.2 の範囲外は Store/winget 配布、署名、本番 MSI/MSIX packaging、GUI machine-rule editing、System Mode の active-window priority switching、任意の shared-host mutation、CPU affinity、I/O priority、EcoQoS、Realtime priority UI、driver、telemetry、network、updater です。
 
