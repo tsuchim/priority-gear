@@ -16,6 +16,8 @@ public sealed class SetupPlanningTests
         Assert.Contains(Path.Combine("versions", "v0.3.0"), plan.VersionInstallDirectory);
         Assert.Contains("PriorityGear.Service.exe", plan.ServiceExePath);
         Assert.Contains(plan.VersionInstallDirectory, plan.ServiceExePath);
+        Assert.Contains("PriorityGear.Setup.exe", plan.SetupExePath);
+        Assert.Contains(plan.VersionInstallDirectory, plan.SetupExePath);
     }
 
     [Fact]
@@ -110,6 +112,20 @@ public sealed class SetupPlanningTests
         Assert.Contains("winget-install.json", inspector);
         Assert.Contains("--install --silent", inspector);
         Assert.Contains("--uninstall --silent", inspector);
+    }
+
+    [Fact]
+    public void UninstallRegistrationUsesMachineScopeQuietUninstall()
+    {
+        SetupInstallPlan plan = SetupInstallPlan.Create("v0.3.2");
+        IReadOnlyDictionary<string, string> values = UninstallRegistration.CreateValues(plan, plan.SetupExePath);
+
+        Assert.Equal("PriorityGear", values["DisplayName"]);
+        Assert.Equal("0.3.2", values["DisplayVersion"]);
+        Assert.Equal("Yuji Tsuchimoto", values["Publisher"]);
+        Assert.Equal(plan.VersionInstallDirectory, values["InstallLocation"]);
+        Assert.Equal($"\"{plan.SetupExePath}\" --uninstall", values["UninstallString"]);
+        Assert.Equal($"\"{plan.SetupExePath}\" --uninstall --silent", values["QuietUninstallString"]);
     }
 
     private static string FindRepoRoot()

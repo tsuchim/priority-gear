@@ -15,7 +15,7 @@ internal static class Program
         SetupCommandLineParseResult parsed = SetupCommandLineParser.Parse(args);
         if (!parsed.Succeeded)
         {
-            FinishWithoutUi(SetupResult.InstallFailed(parsed.Message).Summary);
+            FinishWithoutUi(SetupResult.InstallFailed(parsed.Message).Summary, isError: true);
             Environment.ExitCode = 1;
             return;
         }
@@ -85,7 +85,10 @@ internal static class Program
             log.Fail(ex.ToString());
             log.Info($"Log: {log.Path}");
             log.Flush();
-            FinishWithoutUi($"{SetupResult.InstallFailed(ex.Message).Summary} Log: {log.Path}");
+            SetupResult failure = command.Action == SetupCommandAction.Uninstall
+                ? SetupResult.UninstallFailed(ex.Message)
+                : SetupResult.InstallFailed(ex.Message);
+            FinishWithoutUi($"{failure.Summary} Log: {log.Path}", isError: true);
             return 1;
         }
     }
@@ -99,11 +102,18 @@ internal static class Program
         return Path.Combine(bootstrapLogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
     }
 
-    private static void FinishWithoutUi(string message)
+    private static void FinishWithoutUi(string message, bool isError = false)
     {
         try
         {
-            Console.Error.WriteLine(message);
+            if (isError)
+            {
+                Console.Error.WriteLine(message);
+            }
+            else
+            {
+                Console.Out.WriteLine(message);
+            }
         }
         catch (IOException)
         {
@@ -247,6 +257,7 @@ Options:
                 throw new InvalidOperationException(result.Message);
             }
 
+            WriteUninstallRegistration(plan, log);
             log.Section("Final verdict");
             log.Info(result.Message);
             return result;
@@ -299,6 +310,7 @@ Options:
                 log.Info($"Removed installed program files: {plan.BaseInstallDirectory}");
             }
 
+            DeleteUninstallRegistration(plan, log);
             log.Info($"Preserved data directory: {plan.ProgramDataDirectory}");
             log.Info("Delete ProgramData manually only if machine rules and logs are no longer needed.");
         }
@@ -352,7 +364,38 @@ Options:
                 }
             }
 
+            CopySetupEntrypoint(plan, log);
+
             log.Info("Payload installed to version directory.");
+        }
+
+        private static void CopySetupEntrypoint(SetupInstallPlan plan, SetupLog log)
+        {
+            string[] setupFiles =
+            [
+                "PriorityGear.Setup.exe",
+                "PriorityGear.Setup.dll",
+                "PriorityGear.Setup.deps.json",
+                "PriorityGear.Setup.runtimeconfig.json",
+                "setup-version.txt",
+                "winget-install.json"
+            ];
+
+            foreach (string file in setupFiles)
+            {
+                string source = Path.Combine(AppContext.BaseDirectory, file);
+                if (File.Exists(source))
+                {
+                    File.Copy(source, Path.Combine(plan.VersionInstallDirectory, file), overwrite: true);
+                }
+            }
+
+            if (!File.Exists(plan.SetupExePath))
+            {
+                throw new FileNotFoundException($"Installed setup entrypoint is missing: {plan.SetupExePath}");
+            }
+
+            log.Info($"Setup entrypoint installed: {plan.SetupExePath}");
         }
 
         private static void InstallOrUpdateService(SetupInstallPlan plan, SetupLog log)
@@ -477,6 +520,32 @@ Options:
                     log.Info($"Warning: old version cleanup failed: {oldVersion.FullName}; {ex.Message}");
                 }
             }
+        }
+
+        private static void WriteUninstallRegistration(SetupInstallPlan plan, SetupLog log)
+        {
+            log.Section("Uninstall registration");
+            string keyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{UninstallRegistration.KeyName(plan.Version)}";
+            using Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(keyPath, writable: true)
+                ?? throw new InvalidOperationException($"Failed to create uninstall registry key: HKLM\\{keyPath}");
+
+            foreach ((string name, string value) in UninstallRegistration.CreateValues(plan, plan.SetupExePath))
+            {
+                Microsoft.Win32.RegistryValueKind kind = name is "NoModify" or "NoRepair"
+                    ? Microsoft.Win32.RegistryValueKind.DWord
+                    : Microsoft.Win32.RegistryValueKind.String;
+                object registryValue = kind == Microsoft.Win32.RegistryValueKind.DWord ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : value;
+                key.SetValue(name, registryValue, kind);
+            }
+
+            log.Info($"Registered uninstall entry: HKLM\\{keyPath}");
+        }
+
+        private static void DeleteUninstallRegistration(SetupInstallPlan plan, SetupLog log)
+        {
+            string keyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{UninstallRegistration.KeyName(plan.Version)}";
+            Microsoft.Win32.Registry.LocalMachine.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false);
+            log.Info($"Removed uninstall entry if present: HKLM\\{keyPath}");
         }
 
         private sealed class ProductionInstallerExecutor(SetupInstallPlan plan, SetupLog log, string payloadDirectory) : IInstallerExecutor
