@@ -13,4 +13,6 @@ public sealed record SetupResult(bool Succeeded, string Summary)
     }
 
     public static SetupResult InstallFailed(string reason) => new(false, $"Install failed: {reason}");
+
+    public static SetupResult UninstallFailed(string reason) => new(false, $"Uninstall failed: {reason}");
 }

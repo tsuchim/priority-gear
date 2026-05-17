@@ -13,6 +13,8 @@ public sealed record SetupInstallPlan(
     string MachineRulesPath,
     string LogDirectory)
 {
+    public string SetupExePath => Path.Combine(VersionInstallDirectory, "PriorityGear.Setup.exe");
+
     public static SetupInstallPlan Create(string version)
     {
         if (!Regex.IsMatch(version, @"^v[0-9]+\.[0-9]+\.[0-9]+$") ||

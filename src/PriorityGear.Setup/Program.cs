@@ -12,15 +12,149 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        SetupCommandLineParseResult parsed = SetupCommandLineParser.Parse(args);
+        if (!parsed.Succeeded)
+        {
+            FinishWithoutUi(SetupResult.InstallFailed(parsed.Message).Summary, isError: true);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        SetupCommandLine command = parsed.Command!;
+        if (command.Action == SetupCommandAction.Help)
+        {
+            FinishWithoutUi(HelpText());
+            Environment.ExitCode = 0;
+            return;
+        }
+
+        if (command.Action == SetupCommandAction.Version)
+        {
+            FinishWithoutUi(ReadSetupVersion());
+            Environment.ExitCode = 0;
+            return;
+        }
+
+        if (command.Silent)
+        {
+            Environment.ExitCode = RunSilentAsync(command).GetAwaiter().GetResult();
+            return;
+        }
+
         ApplicationConfiguration.Initialize();
-        using SetupForm form = new(args);
+        using SetupForm form = new(command);
         Application.Run(form);
         Environment.ExitCode = form.ExitCode;
     }
 
+    private static async Task<int> RunSilentAsync(SetupCommandLine command)
+    {
+        string logPath = CreateSetupLogPath();
+        SetupLog log = new(logPath);
+        try
+        {
+            SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
+            if (command.Action == SetupCommandAction.Uninstall)
+            {
+                await UninstallAsync(plan, log);
+                log.Info("PriorityGear uninstall completed.");
+            }
+            else
+            {
+                if (command.Verify)
+                {
+                    log.Info("--verify checks the production install path only. Use PriorityGear.VerificationSetup.exe for the full developer verification harness.");
+                }
+
+                InstallerRunResult installResult = await InstallAsync(plan, log);
+                if (!installResult.Succeeded)
+                {
+                    throw new InvalidOperationException(installResult.Message);
+                }
+
+                log.Info(installResult.Message);
+            }
+
+            log.Info($"Log: {log.Path}");
+            log.Flush();
+            FinishWithoutUi($"PriorityGear setup completed. Log: {log.Path}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            log.Fail(ex.ToString());
+            log.Info($"Log: {log.Path}");
+            log.Flush();
+            SetupResult failure = command.Action == SetupCommandAction.Uninstall
+                ? SetupResult.UninstallFailed(ex.Message)
+                : SetupResult.InstallFailed(ex.Message);
+            FinishWithoutUi($"{failure.Summary} Log: {log.Path}", isError: true);
+            return 1;
+        }
+    }
+
+    private static string CreateSetupLogPath()
+    {
+        string bootstrapLogDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "PriorityGear",
+            "Logs");
+        return Path.Combine(bootstrapLogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+    }
+
+    private static void FinishWithoutUi(string message, bool isError = false)
+    {
+        try
+        {
+            if (isError)
+            {
+                Console.Error.WriteLine(message);
+            }
+            else
+            {
+                Console.Out.WriteLine(message);
+            }
+        }
+        catch (IOException)
+        {
+        }
+    }
+
+    public static string HelpText()
+    {
+        return """
+PriorityGear.Setup.exe [--install|--uninstall] [--silent|--quiet] [--verify]
+PriorityGear.Setup.exe --version
+PriorityGear.Setup.exe --help
+
+Options:
+  --install           Install or update PriorityGear. This is the default action.
+  --uninstall         Stop and delete PriorityGear.Service and remove installed program files.
+  --silent, --quiet   Run without setup UI or message boxes. Required for winget.
+  --verify            Check the production install path only.
+  --version           Print setup-version.txt.
+  --help              Print this help text.
+""";
+    }
+
+    private static Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
+    {
+        return SetupForm.InstallAsync(plan, log);
+    }
+
+    private static string ReadSetupVersion()
+    {
+        return SetupForm.ReadSetupVersion();
+    }
+
+    private static Task UninstallAsync(SetupInstallPlan plan, SetupLog log)
+    {
+        return SetupForm.UninstallAsync(plan, log);
+    }
+
     private sealed class SetupForm : Form
     {
-        private readonly string[] _args;
+        private readonly SetupCommandLine _command;
         private readonly TextBox _logBox = new()
         {
             Dock = DockStyle.Fill,
@@ -29,9 +163,9 @@ internal static class Program
             ScrollBars = ScrollBars.Both
         };
 
-        public SetupForm(string[] args)
+        public SetupForm(SetupCommandLine command)
         {
-            _args = args;
+            _command = command;
             Text = "PriorityGear Setup";
             Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Width = 900;
@@ -44,17 +178,13 @@ internal static class Program
 
         private async Task RunAsync()
         {
-            string bootstrapLogDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "PriorityGear",
-                "Logs");
-            string logPath = Path.Combine(bootstrapLogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            string logPath = CreateSetupLogPath();
             SetupLog log = new(logPath);
 
             try
             {
                 SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
-                if (_args.Any(arg => string.Equals(arg, "--uninstall", StringComparison.OrdinalIgnoreCase)))
+                if (_command.Action == SetupCommandAction.Uninstall)
                 {
                     await UninstallAsync(plan, log);
                     ExitCode = 0;
@@ -62,7 +192,7 @@ internal static class Program
                     return;
                 }
 
-                if (_args.Any(arg => string.Equals(arg, "--verify", StringComparison.OrdinalIgnoreCase)))
+                if (_command.Verify)
                 {
                     log.Info("--verify checks the production install path only. Use PriorityGear.VerificationSetup.exe for the full developer verification harness.");
                 }
@@ -87,7 +217,7 @@ internal static class Program
             }
         }
 
-        private static async Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
+        internal static async Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
         {
             log.Section("Environment");
             log.Info($"Version: {plan.Version} installer");
@@ -127,12 +257,13 @@ internal static class Program
                 throw new InvalidOperationException(result.Message);
             }
 
+            WriteUninstallRegistration(plan, log);
             log.Section("Final verdict");
             log.Info(result.Message);
             return result;
         }
 
-        private static string ReadSetupVersion()
+        internal static string ReadSetupVersion()
         {
             string versionPath = Path.Combine(AppContext.BaseDirectory, "setup-version.txt");
             if (!File.Exists(versionPath))
@@ -149,7 +280,7 @@ internal static class Program
             return version;
         }
 
-        private static async Task UninstallAsync(SetupInstallPlan plan, SetupLog log)
+        internal static async Task UninstallAsync(SetupInstallPlan plan, SetupLog log)
         {
             log.Section("Uninstall");
             if (!IsElevated())
@@ -179,6 +310,7 @@ internal static class Program
                 log.Info($"Removed installed program files: {plan.BaseInstallDirectory}");
             }
 
+            DeleteUninstallRegistration(plan, log);
             log.Info($"Preserved data directory: {plan.ProgramDataDirectory}");
             log.Info("Delete ProgramData manually only if machine rules and logs are no longer needed.");
         }
@@ -232,7 +364,38 @@ internal static class Program
                 }
             }
 
+            CopySetupEntrypoint(plan, log);
+
             log.Info("Payload installed to version directory.");
+        }
+
+        private static void CopySetupEntrypoint(SetupInstallPlan plan, SetupLog log)
+        {
+            string[] setupFiles =
+            [
+                "PriorityGear.Setup.exe",
+                "PriorityGear.Setup.dll",
+                "PriorityGear.Setup.deps.json",
+                "PriorityGear.Setup.runtimeconfig.json",
+                "setup-version.txt",
+                "winget-install.json"
+            ];
+
+            foreach (string file in setupFiles)
+            {
+                string source = Path.Combine(AppContext.BaseDirectory, file);
+                if (File.Exists(source))
+                {
+                    File.Copy(source, Path.Combine(plan.VersionInstallDirectory, file), overwrite: true);
+                }
+            }
+
+            if (!File.Exists(plan.SetupExePath))
+            {
+                throw new FileNotFoundException($"Installed setup entrypoint is missing: {plan.SetupExePath}");
+            }
+
+            log.Info($"Setup entrypoint installed: {plan.SetupExePath}");
         }
 
         private static void InstallOrUpdateService(SetupInstallPlan plan, SetupLog log)
@@ -357,6 +520,32 @@ internal static class Program
                     log.Info($"Warning: old version cleanup failed: {oldVersion.FullName}; {ex.Message}");
                 }
             }
+        }
+
+        private static void WriteUninstallRegistration(SetupInstallPlan plan, SetupLog log)
+        {
+            log.Section("Uninstall registration");
+            string keyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{UninstallRegistration.KeyName(plan.Version)}";
+            using Microsoft.Win32.RegistryKey key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(keyPath, writable: true)
+                ?? throw new InvalidOperationException($"Failed to create uninstall registry key: HKLM\\{keyPath}");
+
+            foreach ((string name, string value) in UninstallRegistration.CreateValues(plan, plan.SetupExePath))
+            {
+                Microsoft.Win32.RegistryValueKind kind = name is "NoModify" or "NoRepair"
+                    ? Microsoft.Win32.RegistryValueKind.DWord
+                    : Microsoft.Win32.RegistryValueKind.String;
+                object registryValue = kind == Microsoft.Win32.RegistryValueKind.DWord ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : value;
+                key.SetValue(name, registryValue, kind);
+            }
+
+            log.Info($"Registered uninstall entry: HKLM\\{keyPath}");
+        }
+
+        private static void DeleteUninstallRegistration(SetupInstallPlan plan, SetupLog log)
+        {
+            string keyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{UninstallRegistration.KeyName(plan.Version)}";
+            Microsoft.Win32.Registry.LocalMachine.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false);
+            log.Info($"Removed uninstall entry if present: HKLM\\{keyPath}");
         }
 
         private sealed class ProductionInstallerExecutor(SetupInstallPlan plan, SetupLog log, string payloadDirectory) : IInstallerExecutor
