@@ -33,17 +33,17 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.2.1 System Mode Release
+## v0.3.0 System Mode Installer Release
 
-`v0.2.1` is the current public release for the System Mode status update. It includes the System Mode verification setup and the v0.2.1 status visibility polish.
+`v0.3.0` is the current planned GitHub release for the formal System Mode installer. The installer is the normal GitHub-distributed install path for PriorityGear.
 
 The release artifact is:
 
 ```text
-PriorityGear-v0.2.1-system-mode-verification.zip
+PriorityGear-v0.3.0-win-x64-installer.zip
 ```
 
-The verification setup is not a production installer.
+The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to install or update PriorityGear. The installer is AS IS and unsigned unless signing is explicitly added in a later release.
 
 To build the same verification setup locally:
 
@@ -51,13 +51,15 @@ To build the same verification setup locally:
 .\scripts\build-verification-installer.ps1
 ```
 
-Then double-click:
+The installer installs the GUI app and configures `PriorityGear.Service` as a LocalSystem Windows Service under a versioned directory below `%ProgramFiles%\PriorityGear\versions`. It preserves `%ProgramData%\PriorityGear\rules.machine.json` and logs under `%ProgramData%\PriorityGear\Logs`.
+
+For uninstall, run:
 
 ```text
-artifacts\setup-v0.2\PriorityGear-v0.2-system-mode-verification\PriorityGear.VerificationSetup.exe
+PriorityGear.Setup.exe --uninstall
 ```
 
-Approve UAC. The setup installs a LocalSystem service under `%ProgramFiles%\PriorityGear`, verifies the status pipe and administrator mutation pipe, changes and restores priority for `PriorityGear.TestTarget`, validates temporary machine rules, verifies the machine-rule monitor scan path, checks service-process discovery, and writes a log under `%ProgramData%\PriorityGear\Logs`.
+Uninstall stops and deletes the service and removes installed program files. It preserves ProgramData by default.
 
 The v0.2 verification has confirmed the main service path for an interactive test target, the machine-rule monitor path, a temporary LocalSystem-owned `PriorityGear.TestTarget.Service`, targeted service discovery, and a service-name machine rule for that safe temporary service. After SCM API discovery, the full verification completes in about 8 seconds on the tested Windows 11 machine.
 
@@ -65,7 +67,7 @@ The v0.2 System Mode line contains the first service-side machine-rule monitor. 
 
 v0.2 is in scope for LocalSystem service install/update verification, status/admin named pipes, service-side priority mutation, machine-rule monitoring, service-process discovery, service-name machine rules, CLI administration, and minimal GUI System Mode status visibility.
 
-`v0.2.1` is a small polish release. It does not expand service mutation support; it improves System Mode status visibility for already-exposed service data and exercises the automated release path for plain semantic version tags.
+`v0.2.1` remains the prior public release for System Mode status visibility, but its artifact was still a verification setup zip.
 
 `v0.2.0-preview.1` remains the earlier public prerelease for the System Mode foundation.
 
@@ -75,15 +77,15 @@ Post-verification state: `PriorityGear.Service` may remain installed/running, te
 
 ## Artifacts
 
-### v0.2.1 System Mode Verification Setup
+### v0.3.0 GitHub Installer
 
-The current public release artifact is:
+The current planned GitHub release artifact is:
 
 ```text
-PriorityGear-v0.2.1-system-mode-verification.zip
+PriorityGear-v0.3.0-win-x64-installer.zip
 ```
 
-It contains `PriorityGear.VerificationSetup.exe` and the service/app/CLI/TestTarget payload needed for local System Mode verification after UAC approval. It is not a production installer.
+It contains `PriorityGear.Setup.exe` and the service/app/CLI payload needed for install or update after UAC approval. It is not Store, winget, MSI, MSIX, or signed packaging.
 
 ### v0.1 User Mode Portable Publish
 

@@ -17,6 +17,8 @@ PriorityGear v0.2 is the first System Mode foundation preview.
 
 `v0.2.1` is published as the current public release after `v0.2.0-preview.1`. It exercises the automated release path for plain semantic version tags and polishes operator-facing System Mode status visibility for already-supported service data. It does not expand arbitrary shared-host `svchost.exe` mutation support and is not the final stable `v0.2.0` release.
 
+The `v0.2.1` artifact was still a system-mode verification setup zip. The formal GitHub installer path starts with `v0.3.0`.
+
 ## In Scope
 
 - Windows Service host for administrator-approved machine control.
