@@ -52,11 +52,22 @@ dotnet publish "src\PriorityGear.App\PriorityGear.App.csproj" `
 
 Copy-Item -Path (Join-Path $setupPublish "*") -Destination $stagingRoot -Recurse -Force
 Set-Content -LiteralPath (Join-Path $stagingRoot "setup-version.txt") -Value $TagName -Encoding ascii
+Set-Content -LiteralPath (Join-Path $stagingRoot "winget-install.json") -Value (@"
+{
+  "installerType": "zip",
+  "nestedInstallerType": "exe",
+  "nestedInstallerFile": "PriorityGear.Setup.exe",
+  "silentInstall": "--install --silent",
+  "silentUninstall": "--uninstall --silent",
+  "scope": "machine"
+}
+"@) -Encoding ascii
 Copy-Item -LiteralPath $payloadPublish -Destination (Join-Path $stagingRoot "payload") -Recurse -Force
 
 $required = @(
     "PriorityGear.Setup.exe",
     "setup-version.txt",
+    "winget-install.json",
     "payload\PriorityGear.Service.exe",
     "payload\PriorityGear.Cli.exe",
     "payload\PriorityGear.App.exe"

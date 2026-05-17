@@ -107,6 +107,9 @@ public sealed class SetupPlanningTests
         Assert.Contains("PriorityGear.Cli.exe", inspector);
         Assert.Contains("win-x64-installer.zip", inspector);
         Assert.Contains("setup-version.txt", inspector);
+        Assert.Contains("winget-install.json", inspector);
+        Assert.Contains("--install --silent", inspector);
+        Assert.Contains("--uninstall --silent", inspector);
     }
 
     private static string FindRepoRoot()

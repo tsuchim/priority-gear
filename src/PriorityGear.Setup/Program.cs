@@ -12,15 +12,139 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        SetupCommandLineParseResult parsed = SetupCommandLineParser.Parse(args);
+        if (!parsed.Succeeded)
+        {
+            FinishWithoutUi(SetupResult.InstallFailed(parsed.Message).Summary);
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        SetupCommandLine command = parsed.Command!;
+        if (command.Action == SetupCommandAction.Help)
+        {
+            FinishWithoutUi(HelpText());
+            Environment.ExitCode = 0;
+            return;
+        }
+
+        if (command.Action == SetupCommandAction.Version)
+        {
+            FinishWithoutUi(ReadSetupVersion());
+            Environment.ExitCode = 0;
+            return;
+        }
+
+        if (command.Silent)
+        {
+            Environment.ExitCode = RunSilentAsync(command).GetAwaiter().GetResult();
+            return;
+        }
+
         ApplicationConfiguration.Initialize();
-        using SetupForm form = new(args);
+        using SetupForm form = new(command);
         Application.Run(form);
         Environment.ExitCode = form.ExitCode;
     }
 
+    private static async Task<int> RunSilentAsync(SetupCommandLine command)
+    {
+        string logPath = CreateSetupLogPath();
+        SetupLog log = new(logPath);
+        try
+        {
+            SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
+            if (command.Action == SetupCommandAction.Uninstall)
+            {
+                await UninstallAsync(plan, log);
+                log.Info("PriorityGear uninstall completed.");
+            }
+            else
+            {
+                if (command.Verify)
+                {
+                    log.Info("--verify checks the production install path only. Use PriorityGear.VerificationSetup.exe for the full developer verification harness.");
+                }
+
+                InstallerRunResult installResult = await InstallAsync(plan, log);
+                if (!installResult.Succeeded)
+                {
+                    throw new InvalidOperationException(installResult.Message);
+                }
+
+                log.Info(installResult.Message);
+            }
+
+            log.Info($"Log: {log.Path}");
+            log.Flush();
+            FinishWithoutUi($"PriorityGear setup completed. Log: {log.Path}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            log.Fail(ex.ToString());
+            log.Info($"Log: {log.Path}");
+            log.Flush();
+            FinishWithoutUi($"{SetupResult.InstallFailed(ex.Message).Summary} Log: {log.Path}");
+            return 1;
+        }
+    }
+
+    private static string CreateSetupLogPath()
+    {
+        string bootstrapLogDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "PriorityGear",
+            "Logs");
+        return Path.Combine(bootstrapLogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+    }
+
+    private static void FinishWithoutUi(string message)
+    {
+        try
+        {
+            Console.Error.WriteLine(message);
+        }
+        catch (IOException)
+        {
+        }
+    }
+
+    public static string HelpText()
+    {
+        return """
+PriorityGear.Setup.exe [--install|--uninstall] [--silent|--quiet] [--verify]
+PriorityGear.Setup.exe --version
+PriorityGear.Setup.exe --help
+
+Options:
+  --install           Install or update PriorityGear. This is the default action.
+  --uninstall         Stop and delete PriorityGear.Service and remove installed program files.
+  --silent, --quiet   Run without setup UI or message boxes. Required for winget.
+  --verify            Check the production install path only.
+  --version           Print setup-version.txt.
+  --help              Print this help text.
+""";
+    }
+
+    private static Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
+    {
+        return SetupForm.InstallAsync(plan, log);
+    }
+
+    private static string ReadSetupVersion()
+    {
+        return SetupForm.ReadSetupVersion();
+    }
+
+    private static Task UninstallAsync(SetupInstallPlan plan, SetupLog log)
+    {
+        return SetupForm.UninstallAsync(plan, log);
+    }
+
     private sealed class SetupForm : Form
     {
-        private readonly string[] _args;
+        private readonly SetupCommandLine _command;
         private readonly TextBox _logBox = new()
         {
             Dock = DockStyle.Fill,
@@ -29,9 +153,9 @@ internal static class Program
             ScrollBars = ScrollBars.Both
         };
 
-        public SetupForm(string[] args)
+        public SetupForm(SetupCommandLine command)
         {
-            _args = args;
+            _command = command;
             Text = "PriorityGear Setup";
             Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             Width = 900;
@@ -44,17 +168,13 @@ internal static class Program
 
         private async Task RunAsync()
         {
-            string bootstrapLogDirectory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "PriorityGear",
-                "Logs");
-            string logPath = Path.Combine(bootstrapLogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            string logPath = CreateSetupLogPath();
             SetupLog log = new(logPath);
 
             try
             {
                 SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
-                if (_args.Any(arg => string.Equals(arg, "--uninstall", StringComparison.OrdinalIgnoreCase)))
+                if (_command.Action == SetupCommandAction.Uninstall)
                 {
                     await UninstallAsync(plan, log);
                     ExitCode = 0;
@@ -62,7 +182,7 @@ internal static class Program
                     return;
                 }
 
-                if (_args.Any(arg => string.Equals(arg, "--verify", StringComparison.OrdinalIgnoreCase)))
+                if (_command.Verify)
                 {
                     log.Info("--verify checks the production install path only. Use PriorityGear.VerificationSetup.exe for the full developer verification harness.");
                 }
@@ -87,7 +207,7 @@ internal static class Program
             }
         }
 
-        private static async Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
+        internal static async Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
         {
             log.Section("Environment");
             log.Info($"Version: {plan.Version} installer");
@@ -132,7 +252,7 @@ internal static class Program
             return result;
         }
 
-        private static string ReadSetupVersion()
+        internal static string ReadSetupVersion()
         {
             string versionPath = Path.Combine(AppContext.BaseDirectory, "setup-version.txt");
             if (!File.Exists(versionPath))
@@ -149,7 +269,7 @@ internal static class Program
             return version;
         }
 
-        private static async Task UninstallAsync(SetupInstallPlan plan, SetupLog log)
+        internal static async Task UninstallAsync(SetupInstallPlan plan, SetupLog log)
         {
             log.Section("Uninstall");
             if (!IsElevated())

@@ -44,6 +44,7 @@ try {
     $required = @(
         "PriorityGear.Setup.exe",
         "setup-version.txt",
+        "winget-install.json",
         "payload/PriorityGear.Service.exe",
         "payload/PriorityGear.Cli.exe",
         "payload/PriorityGear.App.exe"
@@ -70,6 +71,25 @@ try {
 
     if ($setupVersion -ne $TagName) {
         throw "setup-version.txt must match tag $TagName but was $setupVersion."
+    }
+
+    $wingetEntry = $zip.GetEntry("winget-install.json")
+    if ($null -eq $wingetEntry) {
+        throw "Zip is missing winget-install.json."
+    }
+
+    $reader = New-Object System.IO.StreamReader($wingetEntry.Open())
+    try {
+        $wingetMetadata = $reader.ReadToEnd()
+    }
+    finally {
+        $reader.Dispose()
+    }
+
+    if ($wingetMetadata -notmatch '"nestedInstallerFile"\s*:\s*"PriorityGear\.Setup\.exe"' -or
+        $wingetMetadata -notmatch '"silentInstall"\s*:\s*"--install --silent"' -or
+        $wingetMetadata -notmatch '"silentUninstall"\s*:\s*"--uninstall --silent"') {
+        throw "winget-install.json must declare PriorityGear.Setup.exe and silent install/uninstall switches."
     }
 
     $forbidden = $entries | Where-Object {
