@@ -39,6 +39,13 @@
 - Elevated setup verification is recorded evidence from a real machine. Do not run elevated setup inside GitHub Actions.
 - Treat the second semantic-version component as the minor version. Do not increment it casually. For ordinary fixes, previews, and release refreshes, increment the third component or the preview/release suffix instead.
 
+## Adversarial Testing
+
+- Before expanding installer, service, pipe, rule, discovery, or release-artifact behavior, add adversarial tests that prove broken or hostile states fail explicitly.
+- Installer state-machine tests should use admin-free fake executors in CI. CI must not install or mutate Windows Services.
+- Release artifact tests must reject missing installer payload, checksum mismatch, unsafe tag names, source/test tree leakage, and test assemblies.
+- Do not treat partial install, failed service status, denied caller identity, dry-run mutation, or malformed pipe input as success.
+
 ## Protected Surfaces
 
 Treat AGENTS files, runtime configuration, agent definitions, instructions, hooks, and skills as protected surfaces. Prefer structural enforcement and explicit approval over prompt-only warnings where available.

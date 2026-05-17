@@ -67,9 +67,10 @@ internal static class Program
                     log.Info("--verify checks the production install path only. Use PriorityGear.VerificationSetup.exe for the full developer verification harness.");
                 }
 
-                ServiceResponse status = await InstallAsync(plan, log);
-                string identity = status.Status?.ProcessIdentity ?? string.Empty;
-                SetupResult result = SetupResult.InstallSucceeded(identity);
+                InstallerRunResult installResult = await InstallAsync(plan, log);
+                SetupResult result = installResult.Succeeded
+                    ? new SetupResult(true, installResult.Message)
+                    : SetupResult.InstallFailed(installResult.Message);
                 if (!result.Succeeded)
                 {
                     throw new InvalidOperationException(result.Summary);
@@ -86,7 +87,7 @@ internal static class Program
             }
         }
 
-        private static async Task<ServiceResponse> InstallAsync(SetupInstallPlan plan, SetupLog log)
+        private static async Task<InstallerRunResult> InstallAsync(SetupInstallPlan plan, SetupLog log)
         {
             log.Section("Environment");
             log.Info($"Version: {plan.Version} installer");
@@ -103,13 +104,6 @@ internal static class Program
                 throw new InvalidOperationException("Administrator rights are required. Re-run by double-clicking the installer and approving UAC.");
             }
 
-            string payloadDirectory = SetupPayload.PayloadDirectory(AppContext.BaseDirectory);
-            IReadOnlyList<string> missingFiles = SetupPayload.MissingFiles(payloadDirectory);
-            if (missingFiles.Count > 0)
-            {
-                throw new FileNotFoundException($"Payload is incomplete: {string.Join(", ", missingFiles)}");
-            }
-
             SetupPlanSummary planSummary = SetupPlanner.CreateInstallOrUpdatePlan(plan);
             log.Section("Install/update plan");
             log.Info($"Service name: {planSummary.ServiceName}");
@@ -119,17 +113,23 @@ internal static class Program
             log.Info($"Preserve machine rules: {planSummary.PreserveMachineRules}");
             log.Info($"Preserve logs: {planSummary.PreserveLogs}");
 
-            await StopExistingServiceBeforeInstallAsync(plan, log);
-            InstallPayload(payloadDirectory, plan, log);
-            InstallOrUpdateService(plan, log);
-            CleanupOldVersions(plan, log);
-            await StartServiceAsync(plan, log);
-            VerifyServiceConfiguration(plan, log);
-            ServiceResponse status = await VerifyStatusPipeAsync(log);
-            VerifyServiceStatus(status, log);
+            InstallerRunResult result = new InstallerStateMachine(
+                plan,
+                new ProductionInstallerExecutor(plan, log, SetupPayload.PayloadDirectory(AppContext.BaseDirectory)))
+                .InstallOrUpdate();
+            foreach (string warning in result.Warnings)
+            {
+                log.Info($"Warning: {warning}");
+            }
+
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException(result.Message);
+            }
+
             log.Section("Final verdict");
-            log.Info("Install/update completed.");
-            return status;
+            log.Info(result.Message);
+            return result;
         }
 
         private static string ReadSetupVersion()
@@ -269,7 +269,7 @@ internal static class Program
             string account = TryGetServiceRegistryValue(plan.ServiceName, "ObjectName") ?? string.Empty;
             log.Info($"Service binary path: {imagePath}");
             log.Info($"Service account: {account}");
-            if (!imagePath.Contains(plan.ServiceExePath, StringComparison.OrdinalIgnoreCase))
+            if (!InstallerStateMachine.ServiceBinaryPathMatches(imagePath, plan.ServiceExePath))
             {
                 throw new InvalidOperationException($"Service binary path is not the installed service path: {imagePath}");
             }
@@ -356,6 +356,58 @@ internal static class Program
                 {
                     log.Info($"Warning: old version cleanup failed: {oldVersion.FullName}; {ex.Message}");
                 }
+            }
+        }
+
+        private sealed class ProductionInstallerExecutor(SetupInstallPlan plan, SetupLog log, string payloadDirectory) : IInstallerExecutor
+        {
+            public void ValidatePayload()
+            {
+                IReadOnlyList<string> missingFiles = SetupPayload.MissingFiles(payloadDirectory);
+                if (missingFiles.Count > 0)
+                {
+                    throw new FileNotFoundException($"Payload is incomplete: {string.Join(", ", missingFiles)}");
+                }
+            }
+
+            public void StopExistingService()
+            {
+                StopExistingServiceBeforeInstallAsync(plan, log).GetAwaiter().GetResult();
+            }
+
+            public void CopyPayload()
+            {
+                InstallPayload(payloadDirectory, plan, log);
+            }
+
+            public void ConfigureService()
+            {
+                InstallOrUpdateService(plan, log);
+            }
+
+            public void StartService()
+            {
+                StartServiceAsync(plan, log).GetAwaiter().GetResult();
+            }
+
+            public InstallerStatus QueryStatus()
+            {
+                ServiceResponse response = VerifyStatusPipeAsync(log).GetAwaiter().GetResult();
+                ServiceStatusDto dto = response.Status ?? throw new InvalidOperationException("Status pipe succeeded but did not return service status.");
+                log.Info($"Service running: {dto.ServiceRunning}");
+                log.Info($"Configured account: {dto.ConfiguredServiceAccount}");
+                log.Info($"Process identity: {dto.ProcessIdentity}");
+                log.Info($"SeDebugPrivilege: {dto.SeDebugPrivilege.Status}");
+                return new InstallerStatus(
+                    dto.ServiceRunning,
+                    dto.ConfiguredServiceAccount,
+                    dto.ProcessIdentity,
+                    dto.ServiceBinaryPath);
+            }
+
+            public void CleanupOldVersions()
+            {
+                SetupForm.CleanupOldVersions(plan, log);
             }
         }
 
