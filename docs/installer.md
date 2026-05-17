@@ -52,7 +52,11 @@ For silent uninstall:
 
 ## winget
 
-The installer is prepared for winget submission as a zip package with nested `PriorityGear.Setup.exe`. The winget package is not available until the `microsoft/winget-pkgs` PR is validated and merged.
+The installer is submitted for winget distribution as a zip package with nested `PriorityGear.Setup.exe`:
+
+https://github.com/microsoft/winget-pkgs/pull/375643
+
+The winget package is not available until Microsoft validation is complete, the PR is merged, and `winget search` can find it.
 
 ## Boundaries
 

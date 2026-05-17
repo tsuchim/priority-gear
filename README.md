@@ -87,7 +87,7 @@ PriorityGear-v0.3.2-win-x64-installer.zip
 
 It contains `PriorityGear.Setup.exe` and the service/app/CLI payload needed for install or update after UAC approval. It is not Store, MSI, MSIX, or signed packaging.
 
-For winget submission, the installer supports `--install --silent` and `--uninstall --silent`. The winget package is not available until the `microsoft/winget-pkgs` PR is validated and merged.
+For winget submission, the installer supports `--install --silent` and `--uninstall --silent`. The winget package is submitted in [microsoft/winget-pkgs#375643](https://github.com/microsoft/winget-pkgs/pull/375643), but it is not available through `winget search` until Microsoft validation is complete and the PR is merged.
 
 ### v0.1 User Mode Portable Publish
 
