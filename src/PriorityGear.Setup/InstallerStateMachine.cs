@@ -48,6 +48,9 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
 
     public InstallerRunResult InstallOrUpdate()
     {
+        _completedSteps.Clear();
+        _warnings.Clear();
+
         try
         {
             RunRequired(InstallerStep.ValidatePayload, executor.ValidatePayload);
@@ -56,11 +59,12 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
             RunRequired(InstallerStep.ConfigureService, executor.ConfigureService);
             RunRequired(InstallerStep.StartService, executor.StartService);
 
-            InstallerStatus status = RunStatusCheck();
+            InstallerStatus status = QueryStatus();
             if (!status.ServiceRunning)
             {
                 return Fail("Service status reports that the service is not running.");
             }
+            _completedSteps.Add(InstallerStep.VerifyStatusPipe);
 
             if (!string.Equals(status.ConfiguredServiceAccount, "LocalSystem", StringComparison.OrdinalIgnoreCase))
             {
@@ -72,10 +76,11 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
                 return Fail("Service status did not report process identity.");
             }
 
-            if (!status.ServiceBinaryPath.Contains(plan.ServiceExePath, StringComparison.OrdinalIgnoreCase))
+            if (!ServiceBinaryPathMatches(status.ServiceBinaryPath, plan.ServiceExePath))
             {
                 return Fail($"Service binary path does not point at the new version directory: {status.ServiceBinaryPath}");
             }
+            _completedSteps.Add(InstallerStep.VerifyServiceConfiguration);
 
             try
             {
@@ -87,7 +92,7 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
                 _warnings.Add($"Old version cleanup failed: {ex.Message}");
             }
 
-            return new InstallerRunResult(true, "Install/update completed.", _completedSteps, _warnings);
+            return Success("Install/update completed.");
         }
         catch (Exception ex)
         {
@@ -95,12 +100,9 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
         }
     }
 
-    private InstallerStatus RunStatusCheck()
+    private InstallerStatus QueryStatus()
     {
-        InstallerStatus status = executor.QueryStatus();
-        _completedSteps.Add(InstallerStep.VerifyStatusPipe);
-        _completedSteps.Add(InstallerStep.VerifyServiceConfiguration);
-        return status;
+        return executor.QueryStatus();
     }
 
     private void RunRequired(InstallerStep step, Action action)
@@ -111,6 +113,43 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
 
     private InstallerRunResult Fail(string message)
     {
-        return new InstallerRunResult(false, message, _completedSteps, _warnings);
+        return new InstallerRunResult(false, message, _completedSteps.ToArray(), _warnings.ToArray());
+    }
+
+    private InstallerRunResult Success(string message)
+    {
+        return new InstallerRunResult(true, message, _completedSteps.ToArray(), _warnings.ToArray());
+    }
+
+    public static bool ServiceBinaryPathMatches(string configuredPath, string expectedPath)
+    {
+        string? configuredExe = ExtractExecutablePath(configuredPath);
+        if (string.IsNullOrWhiteSpace(configuredExe))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            Path.GetFullPath(configuredExe),
+            Path.GetFullPath(expectedPath),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? ExtractExecutablePath(string configuredPath)
+    {
+        string trimmed = configuredPath.Trim();
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+
+        if (trimmed[0] == '"')
+        {
+            int endQuote = trimmed.IndexOf('"', 1);
+            return endQuote > 1 ? trimmed[1..endQuote] : null;
+        }
+
+        int exeIndex = trimmed.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+        return exeIndex >= 0 ? trimmed[..(exeIndex + 4)] : trimmed.Split(' ', 2)[0];
     }
 }

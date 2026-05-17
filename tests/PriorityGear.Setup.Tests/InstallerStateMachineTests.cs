@@ -31,6 +31,42 @@ public sealed class InstallerStateMachineTests
     }
 
     [Fact]
+    public void ServiceStopFailureIsNotSuccess()
+    {
+        FakeInstallerExecutor executor = new() { StopServiceFailure = "stop denied" };
+
+        InstallerRunResult result = new InstallerStateMachine(Plan, executor).InstallOrUpdate();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("stop denied", result.Message);
+        Assert.DoesNotContain(InstallerStep.CopyPayload, result.CompletedSteps);
+    }
+
+    [Fact]
+    public void PartialCopyFailureIsNotSuccess()
+    {
+        FakeInstallerExecutor executor = new() { CopyPayloadFailure = "copy failed halfway" };
+
+        InstallerRunResult result = new InstallerStateMachine(Plan, executor).InstallOrUpdate();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("copy failed halfway", result.Message);
+        Assert.DoesNotContain(InstallerStep.ConfigureService, result.CompletedSteps);
+    }
+
+    [Fact]
+    public void ServiceConfigureFailureIsNotSuccess()
+    {
+        FakeInstallerExecutor executor = new() { ConfigureServiceFailure = "create service failed" };
+
+        InstallerRunResult result = new InstallerStateMachine(Plan, executor).InstallOrUpdate();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("create service failed", result.Message);
+        Assert.DoesNotContain(InstallerStep.StartService, result.CompletedSteps);
+    }
+
+    [Fact]
     public void StatusPipeTimeoutIsNotSuccess()
     {
         FakeInstallerExecutor executor = new() { QueryStatusFailure = "status pipe timeout" };
@@ -53,6 +89,7 @@ public sealed class InstallerStateMachineTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("LocalSystem", result.Message);
+        Assert.DoesNotContain(InstallerStep.VerifyServiceConfiguration, result.CompletedSteps);
     }
 
     [Fact]
@@ -67,6 +104,15 @@ public sealed class InstallerStateMachineTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("new version directory", result.Message);
+    }
+
+    [Fact]
+    public void ServiceBinaryPathRequiresExactExecutablePath()
+    {
+        string hostilePath = $"C:\\Windows\\System32\\cmd.exe /c \"{Plan.ServiceExePath}\"";
+
+        Assert.False(InstallerStateMachine.ServiceBinaryPathMatches(hostilePath, Plan.ServiceExePath));
+        Assert.True(InstallerStateMachine.ServiceBinaryPathMatches($"\"{Plan.ServiceExePath}\" --service", Plan.ServiceExePath));
     }
 
     [Fact]
@@ -92,11 +138,41 @@ public sealed class InstallerStateMachineTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("process identity", result.Message);
+        Assert.DoesNotContain(InstallerStep.VerifyServiceConfiguration, result.CompletedSteps);
+    }
+
+    [Fact]
+    public void ReturnedResultDoesNotExposeMutableStepLists()
+    {
+        InstallerStateMachine stateMachine = new(Plan, new FakeInstallerExecutor());
+        InstallerRunResult first = stateMachine.InstallOrUpdate();
+
+        _ = stateMachine.InstallOrUpdate();
+
+        Assert.Equal(
+            new[]
+            {
+                InstallerStep.ValidatePayload,
+                InstallerStep.StopExistingService,
+                InstallerStep.CopyPayload,
+                InstallerStep.ConfigureService,
+                InstallerStep.StartService,
+                InstallerStep.VerifyStatusPipe,
+                InstallerStep.VerifyServiceConfiguration,
+                InstallerStep.CleanupOldVersions
+            },
+            first.CompletedSteps);
     }
 
     private sealed class FakeInstallerExecutor : IInstallerExecutor
     {
         public string? ValidatePayloadFailure { get; init; }
+
+        public string? StopServiceFailure { get; init; }
+
+        public string? CopyPayloadFailure { get; init; }
+
+        public string? ConfigureServiceFailure { get; init; }
 
         public string? StartServiceFailure { get; init; }
 
@@ -108,17 +184,11 @@ public sealed class InstallerStateMachineTests
 
         public void ValidatePayload() => ThrowIfSet(ValidatePayloadFailure);
 
-        public void StopExistingService()
-        {
-        }
+        public void StopExistingService() => ThrowIfSet(StopServiceFailure);
 
-        public void CopyPayload()
-        {
-        }
+        public void CopyPayload() => ThrowIfSet(CopyPayloadFailure);
 
-        public void ConfigureService()
-        {
-        }
+        public void ConfigureService() => ThrowIfSet(ConfigureServiceFailure);
 
         public void StartService() => ThrowIfSet(StartServiceFailure);
 
