@@ -19,6 +19,14 @@ public sealed class SetupPlanningTests
     }
 
     [Fact]
+    public void InstallPlanRejectsPathLikeVersion()
+    {
+        Assert.Throws<ArgumentException>(() => SetupInstallPlan.Create(@"..\..\Windows"));
+        Assert.Throws<ArgumentException>(() => SetupInstallPlan.Create(@"v0.3.0\.."));
+        Assert.Throws<ArgumentException>(() => SetupInstallPlan.Create("v0.3.0-preview.1"));
+    }
+
+    [Fact]
     public void ServiceConfigurationPlanUsesLocalSystemAndServiceBinary()
     {
         SetupInstallPlan plan = SetupInstallPlan.Create("v0.3.0");
@@ -77,10 +85,14 @@ public sealed class SetupPlanningTests
     [Fact]
     public void ReleaseArtifactNamesUseInstallerNaming()
     {
-        string tag = "v0.3.0";
+        string repoRoot = FindRepoRoot();
+        string packageScript = File.ReadAllText(Path.Combine(repoRoot, "scripts", "package-release.ps1"));
+        string inspector = File.ReadAllText(Path.Combine(repoRoot, "scripts", "inspect-release-artifacts.ps1"));
 
-        Assert.Equal("PriorityGear-v0.3.0-win-x64-installer.zip", $"PriorityGear-{tag}-win-x64-installer.zip");
-        Assert.Equal("PriorityGear-v0.3.0-SHA256SUMS.txt", $"PriorityGear-{tag}-SHA256SUMS.txt");
+        Assert.Contains("PriorityGear-$TagName-win-x64-installer.zip", packageScript);
+        Assert.Contains("PriorityGear-$TagName-SHA256SUMS.txt", packageScript);
+        Assert.Contains("PriorityGear-$TagName-win-x64-installer.zip", inspector);
+        Assert.Contains("PriorityGear-$TagName-SHA256SUMS.txt", inspector);
     }
 
     [Fact]

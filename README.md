@@ -45,10 +45,10 @@ PriorityGear-v0.3.0-win-x64-installer.zip
 
 The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to install or update PriorityGear. The installer is AS IS and unsigned unless signing is explicitly added in a later release.
 
-To build the same verification setup locally:
+To build the same installer artifact locally:
 
 ```powershell
-.\scripts\build-verification-installer.ps1
+.\scripts\package-release.ps1 -TagName "v0.3.0" -OutputDirectory ".\artifacts\release-test-v0.3.0"
 ```
 
 The installer installs the GUI app and configures `PriorityGear.Service` as a LocalSystem Windows Service under a versioned directory below `%ProgramFiles%\PriorityGear\versions`. It preserves `%ProgramData%\PriorityGear\rules.machine.json` and logs under `%ProgramData%\PriorityGear\Logs`.

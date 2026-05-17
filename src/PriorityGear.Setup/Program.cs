@@ -44,12 +44,16 @@ internal static class Program
 
         private async Task RunAsync()
         {
-            SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
-            string logPath = Path.Combine(plan.LogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            string bootstrapLogDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "PriorityGear",
+                "Logs");
+            string logPath = Path.Combine(bootstrapLogDirectory, $"setup-{DateTime.Now:yyyyMMdd-HHmmss}.log");
             SetupLog log = new(logPath);
 
             try
             {
+                SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
                 if (_args.Any(arg => string.Equals(arg, "--uninstall", StringComparison.OrdinalIgnoreCase)))
                 {
                     await UninstallAsync(plan, log);
@@ -85,7 +89,7 @@ internal static class Program
         private static async Task<ServiceResponse> InstallAsync(SetupInstallPlan plan, SetupLog log)
         {
             log.Section("Environment");
-            log.Info("Version: v0.3.0 installer");
+            log.Info($"Version: {plan.Version} installer");
             log.Info($"Windows: {Environment.OSVersion.VersionString}");
             log.Info($"User: {WindowsIdentity.GetCurrent().Name}");
             log.Info($"Elevated: {IsElevated()}");
@@ -133,11 +137,16 @@ internal static class Program
             string versionPath = Path.Combine(AppContext.BaseDirectory, "setup-version.txt");
             if (!File.Exists(versionPath))
             {
-                return "v0.3.0";
+                throw new FileNotFoundException("Installer is missing setup-version.txt.", versionPath);
             }
 
             string version = File.ReadAllText(versionPath).Trim();
-            return string.IsNullOrWhiteSpace(version) ? "v0.3.0" : version;
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                throw new InvalidOperationException("setup-version.txt is empty.");
+            }
+
+            return version;
         }
 
         private static async Task UninstallAsync(SetupInstallPlan plan, SetupLog log)

@@ -53,10 +53,10 @@ PriorityGear-v0.3.0-win-x64-installer.zip
 
 zip には `PriorityGear.Setup.exe` が含まれます。ダブルクリックして UAC を承認すると PriorityGear を install / update します。この installer は AS IS であり、署名を明示的に追加するまでは unsigned です。
 
-同じ検証用 setup をローカルで作成する場合:
+同じ installer artifact をローカルで作成する場合:
 
 ```powershell
-.\scripts\build-verification-installer.ps1
+.\scripts\package-release.ps1 -TagName "v0.3.0" -OutputDirectory ".\artifacts\release-test-v0.3.0"
 ```
 
 installer は GUI app を配置し、`PriorityGear.Service` を `%ProgramFiles%\PriorityGear\versions` 以下の versioned directory から起動する LocalSystem Windows Service として構成します。`%ProgramData%\PriorityGear\rules.machine.json` と `%ProgramData%\PriorityGear\Logs` は保持します。
