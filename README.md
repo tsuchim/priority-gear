@@ -33,14 +33,14 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.3.2 System Mode Installer Release
+## v0.3.3 System Mode Installer Release
 
-`v0.3.2` is the current GitHub release for the formal System Mode installer. It adds silent installer switches needed for winget submission. The installer is the normal GitHub-distributed install path for PriorityGear.
+`v0.3.3` is the next GitHub release for the formal System Mode installer. It fixes the `v0.3.1` / `v0.3.2` blank-progress installer window by showing the log path immediately and streaming progress while setup runs.
 
 The release artifact is:
 
 ```text
-PriorityGear-v0.3.2-win-x64-installer.zip
+PriorityGear-v0.3.3-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to install or update PriorityGear. The installer is AS IS and unsigned unless signing is explicitly added in a later release.
@@ -48,7 +48,7 @@ The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to in
 To build the same installer artifact locally:
 
 ```powershell
-.\scripts\package-release.ps1 -TagName "v0.3.2" -OutputDirectory ".\artifacts\release-test-v0.3.2"
+.\scripts\package-release.ps1 -TagName "v0.3.3" -OutputDirectory ".\artifacts\release-test-v0.3.3"
 ```
 
 The installer installs the GUI app and configures `PriorityGear.Service` as a LocalSystem Windows Service under a versioned directory below `%ProgramFiles%\PriorityGear\versions`. It preserves `%ProgramData%\PriorityGear\rules.machine.json` and logs under `%ProgramData%\PriorityGear\Logs`.
@@ -77,17 +77,17 @@ Post-verification state: `PriorityGear.Service` may remain installed/running, te
 
 ## Artifacts
 
-### v0.3.2 GitHub Installer
+### v0.3.3 GitHub Installer
 
 The current GitHub release artifact is:
 
 ```text
-PriorityGear-v0.3.2-win-x64-installer.zip
+PriorityGear-v0.3.3-win-x64-installer.zip
 ```
 
 It contains `PriorityGear.Setup.exe` and the service/app/CLI payload needed for install or update after UAC approval. It is not Store, MSI, MSIX, or signed packaging.
 
-For winget submission, the installer supports `--install --silent` and `--uninstall --silent`. The winget package is submitted in [microsoft/winget-pkgs#375643](https://github.com/microsoft/winget-pkgs/pull/375643), but it is not available through `winget search` until Microsoft validation is complete and the PR is merged.
+The installer supports `--install --silent` and `--uninstall --silent`. winget registration is not done in this release; the earlier winget submission was closed while this installer progress fix is prepared.
 
 ### v0.1 User Mode Portable Publish
 
