@@ -19,10 +19,16 @@ public sealed class SetupLog(string path)
 
     public void Flush()
     {
-        lock (_sync)
+        try
         {
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-            File.WriteAllText(Path, _content.ToString(), Encoding.UTF8);
+            lock (_sync)
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+                File.WriteAllText(Path, _content.ToString(), Encoding.UTF8);
+            }
+        }
+        catch (Exception ex) when (IsLogIoFailure(ex))
+        {
         }
     }
 
@@ -40,10 +46,27 @@ public sealed class SetupLog(string path)
         lock (_sync)
         {
             _content.AppendLine(line);
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-            File.AppendAllText(Path, line + Environment.NewLine, Encoding.UTF8);
+            try
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+                File.AppendAllText(Path, line + Environment.NewLine, Encoding.UTF8);
+            }
+            catch (Exception ex) when (IsLogIoFailure(ex))
+            {
+            }
         }
 
-        LineWritten?.Invoke(line);
+        try
+        {
+            LineWritten?.Invoke(line);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ObjectDisposedException)
+        {
+        }
+    }
+
+    private static bool IsLogIoFailure(Exception ex)
+    {
+        return ex is IOException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException;
     }
 }

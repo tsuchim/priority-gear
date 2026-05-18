@@ -189,6 +189,7 @@ public sealed class InstallerStateMachineTests
         InstallerRunResult result = stateMachine.InstallOrUpdate();
 
         Assert.False(result.Succeeded);
+        Assert.Contains("ConfigureService failed", result.Message);
         Assert.Contains(progress, p => p.Kind == InstallerProgressKind.Failed && p.Step == InstallerStep.ConfigureService);
         Assert.DoesNotContain(progress, p => p.Kind == InstallerProgressKind.Completed && p.Step == InstallerStep.StartService);
     }

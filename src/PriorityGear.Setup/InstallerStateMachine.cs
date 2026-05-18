@@ -114,6 +114,10 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
 
             return Success("Install/update completed.");
         }
+        catch (InstallerStepException ex)
+        {
+            return Fail($"{ex.Step} failed: {ex.InnerException?.Message ?? ex.Message}");
+        }
         catch (Exception ex)
         {
             return Fail(ex.Message);
@@ -127,17 +131,17 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
 
     private void RunRequired(InstallerStep step, Action action)
     {
-        Emit(InstallerProgressKind.Starting, step, $"Starting {step}.");
+        Emit(InstallerProgressKind.Starting, step, "Starting.");
         try
         {
             action();
             _completedSteps.Add(step);
-            Emit(InstallerProgressKind.Completed, step, $"Completed {step}.");
+            Emit(InstallerProgressKind.Completed, step, "Completed.");
         }
         catch (Exception ex)
         {
-            Emit(InstallerProgressKind.Failed, step, $"Failed {step}: {ex.Message}");
-            throw;
+            Emit(InstallerProgressKind.Failed, step, ex.Message);
+            throw new InstallerStepException(step, ex);
         }
     }
 
@@ -160,6 +164,12 @@ public sealed class InstallerStateMachine(SetupInstallPlan plan, IInstallerExecu
     private void Emit(InstallerProgressKind kind, InstallerStep step, string message)
     {
         Progress?.Invoke(new InstallerProgress(kind, step, message));
+    }
+
+    private sealed class InstallerStepException(InstallerStep step, Exception innerException)
+        : Exception(innerException.Message, innerException)
+    {
+        public InstallerStep Step { get; } = step;
     }
 
     public static bool ServiceBinaryPathMatches(string configuredPath, string expectedPath)

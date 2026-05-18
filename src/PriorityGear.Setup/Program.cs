@@ -225,21 +225,41 @@ Options:
 
         private void AppendLogLine(string line)
         {
-            if (IsDisposed)
+            if (IsDisposed || !IsHandleCreated)
             {
                 return;
             }
 
             void Append()
             {
-                _logBox.AppendText(line + Environment.NewLine);
-                _logBox.SelectionStart = _logBox.TextLength;
-                _logBox.ScrollToCaret();
+                if (IsDisposed || _logBox.IsDisposed)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _logBox.AppendText(line + Environment.NewLine);
+                    _logBox.SelectionStart = _logBox.TextLength;
+                    _logBox.ScrollToCaret();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (InvalidOperationException)
+                {
+                }
             }
 
             if (InvokeRequired)
             {
-                BeginInvoke((Action)Append);
+                try
+                {
+                    BeginInvoke((Action)Append);
+                }
+                catch (InvalidOperationException)
+                {
+                }
             }
             else
             {
@@ -276,7 +296,7 @@ Options:
             InstallerStateMachine stateMachine = new(
                 plan,
                 new ProductionInstallerExecutor(plan, log, SetupPayload.PayloadDirectory(AppContext.BaseDirectory)));
-            stateMachine.Progress += progress => log.Info($"{progress.Kind}: {progress.Step}: {progress.Message}");
+            stateMachine.Progress += progress => log.Info($"{progress.Step} {progress.Kind}: {progress.Message}");
             InstallerRunResult result = stateMachine.InstallOrUpdate();
             foreach (string warning in result.Warnings)
             {
@@ -698,7 +718,6 @@ Options:
         {
             log.Info($"Log: {log.Path}");
             log.Flush();
-            _logBox.Text = log.ToString();
             MessageBox.Show(
                 $"{summary}\r\n\r\nLog: {log.Path}",
                 "PriorityGear Setup",
