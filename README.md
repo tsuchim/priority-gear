@@ -33,14 +33,14 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.3.3 System Mode Installer Release
+## v0.3.4 System Mode Installer Release
 
-`v0.3.3` is the next GitHub release for the formal System Mode installer. It fixes the `v0.3.1` / `v0.3.2` blank-progress installer window by showing the log path immediately and streaming progress while setup runs.
+`v0.3.4` is the next GitHub release for the formal System Mode installer. It adds the standard Windows launch path by registering PriorityGear in the Start Menu during install.
 
 The release artifact is:
 
 ```text
-PriorityGear-v0.3.3-win-x64-installer.zip
+PriorityGear-v0.3.4-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to install or update PriorityGear. The installer is AS IS and unsigned unless signing is explicitly added in a later release.
@@ -48,10 +48,16 @@ The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to in
 To build the same installer artifact locally:
 
 ```powershell
-.\scripts\package-release.ps1 -TagName "v0.3.3" -OutputDirectory ".\artifacts\release-test-v0.3.3"
+.\scripts\package-release.ps1 -TagName "v0.3.4" -OutputDirectory ".\artifacts\release-test-v0.3.4"
 ```
 
 The installer installs the GUI app and configures `PriorityGear.Service` as a LocalSystem Windows Service under a versioned directory below `%ProgramFiles%\PriorityGear\versions`. It preserves `%ProgramData%\PriorityGear\rules.machine.json` and logs under `%ProgramData%\PriorityGear\Logs`.
+
+After install, launch the app from:
+
+```text
+Start Menu > PriorityGear > PriorityGear
+```
 
 For uninstall, run:
 
@@ -60,6 +66,7 @@ PriorityGear.Setup.exe --uninstall
 ```
 
 Uninstall stops and deletes the service and removes installed program files. It preserves ProgramData by default.
+It also removes the Start Menu shortcut.
 
 The v0.2 verification has confirmed the main service path for an interactive test target, the machine-rule monitor path, a temporary LocalSystem-owned `PriorityGear.TestTarget.Service`, targeted service discovery, and a service-name machine rule for that safe temporary service. After SCM API discovery, the full verification completes in about 8 seconds on the tested Windows 11 machine.
 
@@ -77,17 +84,17 @@ Post-verification state: `PriorityGear.Service` may remain installed/running, te
 
 ## Artifacts
 
-### v0.3.3 GitHub Installer
+### v0.3.4 GitHub Installer
 
 The current GitHub release artifact is:
 
 ```text
-PriorityGear-v0.3.3-win-x64-installer.zip
+PriorityGear-v0.3.4-win-x64-installer.zip
 ```
 
 It contains `PriorityGear.Setup.exe` and the service/app/CLI payload needed for install or update after UAC approval. It is not Store, MSI, MSIX, or signed packaging.
 
-The installer supports `--install --silent` and `--uninstall --silent`. winget registration is not done in this release; the earlier winget submission was closed while this installer progress fix is prepared.
+The installer supports `--install --silent` and `--uninstall --silent`. winget registration is not done in this release; the earlier winget submission was closed because the installed application launch path and documentation were not ready.
 
 ### v0.1 User Mode Portable Publish
 

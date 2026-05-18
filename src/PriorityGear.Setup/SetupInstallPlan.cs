@@ -15,6 +15,14 @@ public sealed record SetupInstallPlan(
 {
     public string SetupExePath => Path.Combine(VersionInstallDirectory, "PriorityGear.Setup.exe");
 
+    public string AppExePath => Path.Combine(VersionInstallDirectory, "PriorityGear.App.exe");
+
+    public string StartMenuDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
+        "PriorityGear");
+
+    public string StartMenuShortcutPath => Path.Combine(StartMenuDirectory, "PriorityGear.lnk");
+
     public static SetupInstallPlan Create(string version)
     {
         if (!Regex.IsMatch(version, @"^v[0-9]+\.[0-9]+\.[0-9]+$") ||
