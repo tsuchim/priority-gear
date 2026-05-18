@@ -164,6 +164,49 @@ public sealed class InstallerStateMachineTests
             first.CompletedSteps);
     }
 
+    [Fact]
+    public void SuccessEmitsStepStartAndCompleteInOrder()
+    {
+        InstallerStateMachine stateMachine = new(Plan, new FakeInstallerExecutor());
+        List<InstallerProgress> progress = [];
+        stateMachine.Progress += progress.Add;
+
+        InstallerRunResult result = stateMachine.InstallOrUpdate();
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(InstallerProgressKind.Starting, progress[0].Kind);
+        Assert.Equal(InstallerStep.ValidatePayload, progress[0].Step);
+        Assert.Contains(progress, p => p.Kind == InstallerProgressKind.Completed && p.Step == InstallerStep.CleanupOldVersions);
+    }
+
+    [Fact]
+    public void FailureEmitsFailedStepAndStopsLaterCompletion()
+    {
+        InstallerStateMachine stateMachine = new(Plan, new FakeInstallerExecutor { ConfigureServiceFailure = "create failed" });
+        List<InstallerProgress> progress = [];
+        stateMachine.Progress += progress.Add;
+
+        InstallerRunResult result = stateMachine.InstallOrUpdate();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("ConfigureService failed", result.Message);
+        Assert.Contains(progress, p => p.Kind == InstallerProgressKind.Failed && p.Step == InstallerStep.ConfigureService);
+        Assert.DoesNotContain(progress, p => p.Kind == InstallerProgressKind.Completed && p.Step == InstallerStep.StartService);
+    }
+
+    [Fact]
+    public void OldVersionCleanupFailureEmitsWarningAndSuccess()
+    {
+        InstallerStateMachine stateMachine = new(Plan, new FakeInstallerExecutor { CleanupOldVersionsFailure = "locked" });
+        List<InstallerProgress> progress = [];
+        stateMachine.Progress += progress.Add;
+
+        InstallerRunResult result = stateMachine.InstallOrUpdate();
+
+        Assert.True(result.Succeeded);
+        Assert.Contains(progress, p => p.Kind == InstallerProgressKind.Warning && p.Step == InstallerStep.CleanupOldVersions);
+    }
+
     private sealed class FakeInstallerExecutor : IInstallerExecutor
     {
         public string? ValidatePayloadFailure { get; init; }

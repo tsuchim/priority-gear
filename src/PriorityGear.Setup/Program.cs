@@ -180,13 +180,19 @@ Options:
         {
             string logPath = CreateSetupLogPath();
             SetupLog log = new(logPath);
+            log.LineWritten += AppendLogLine;
 
             try
             {
+                foreach (string line in SetupStartup.InitialLines(_command, logPath))
+                {
+                    log.Info(line);
+                }
+
                 SetupInstallPlan plan = SetupInstallPlan.Create(ReadSetupVersion());
                 if (_command.Action == SetupCommandAction.Uninstall)
                 {
-                    await UninstallAsync(plan, log);
+                    await Task.Run(async () => await UninstallAsync(plan, log));
                     ExitCode = 0;
                     Finish("PriorityGear uninstall completed.", log);
                     return;
@@ -197,7 +203,7 @@ Options:
                     log.Info("--verify checks the production install path only. Use PriorityGear.VerificationSetup.exe for the full developer verification harness.");
                 }
 
-                InstallerRunResult installResult = await InstallAsync(plan, log);
+                InstallerRunResult installResult = await Task.Run(async () => await InstallAsync(plan, log));
                 SetupResult result = installResult.Succeeded
                     ? new SetupResult(true, installResult.Message)
                     : SetupResult.InstallFailed(installResult.Message);
@@ -214,6 +220,50 @@ Options:
                 log.Fail(ex.ToString());
                 ExitCode = 1;
                 Finish(SetupResult.InstallFailed(ex.Message).Summary, log);
+            }
+        }
+
+        private void AppendLogLine(string line)
+        {
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+
+            void Append()
+            {
+                if (IsDisposed || _logBox.IsDisposed)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _logBox.AppendText(line + Environment.NewLine);
+                    _logBox.SelectionStart = _logBox.TextLength;
+                    _logBox.ScrollToCaret();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+
+            if (InvokeRequired)
+            {
+                try
+                {
+                    BeginInvoke((Action)Append);
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+            else
+            {
+                Append();
             }
         }
 
@@ -243,10 +293,11 @@ Options:
             log.Info($"Preserve machine rules: {planSummary.PreserveMachineRules}");
             log.Info($"Preserve logs: {planSummary.PreserveLogs}");
 
-            InstallerRunResult result = new InstallerStateMachine(
+            InstallerStateMachine stateMachine = new(
                 plan,
-                new ProductionInstallerExecutor(plan, log, SetupPayload.PayloadDirectory(AppContext.BaseDirectory)))
-                .InstallOrUpdate();
+                new ProductionInstallerExecutor(plan, log, SetupPayload.PayloadDirectory(AppContext.BaseDirectory)));
+            stateMachine.Progress += progress => log.Info($"{progress.Step} {progress.Kind}: {progress.Message}");
+            InstallerRunResult result = stateMachine.InstallOrUpdate();
             foreach (string warning in result.Warnings)
             {
                 log.Info($"Warning: {warning}");
@@ -333,6 +384,7 @@ Options:
             controller.Refresh();
             if (controller.Status is ServiceControllerStatus.Running or ServiceControllerStatus.StartPending)
             {
+                log.Info($"Stopping service {serviceName}; timeout=30s.");
                 controller.Stop();
                 await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30)));
                 log.Info($"Service stopped: {serviceName}");
@@ -418,6 +470,7 @@ Options:
             controller.Refresh();
             if (controller.Status != ServiceControllerStatus.Running)
             {
+                log.Info($"Starting service {plan.ServiceName}; timeout=30s.");
                 controller.Start();
                 await Task.Run(() => controller.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30)));
             }
@@ -447,6 +500,7 @@ Options:
         {
             log.Section("Status pipe");
             ServiceResponse last = new() { Succeeded = false, Message = "Status pipe was not attempted." };
+            log.Info("Status pipe deadline: 20 attempts, 500ms delay between attempts.");
             for (int attempt = 1; attempt <= 20; attempt++)
             {
                 try
@@ -664,7 +718,6 @@ Options:
         {
             log.Info($"Log: {log.Path}");
             log.Flush();
-            _logBox.Text = log.ToString();
             MessageBox.Show(
                 $"{summary}\r\n\r\nLog: {log.Path}",
                 "PriorityGear Setup",

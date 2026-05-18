@@ -1,13 +1,13 @@
 # PriorityGear Installer
 
-PriorityGear `v0.3.2` is the current formal GitHub release installer path. It adds the silent installer mode needed for Windows Package Manager / winget submission.
+PriorityGear `v0.3.3` is the next formal GitHub release installer path. It fixes the blank-progress setup window by showing startup diagnostics immediately and streaming logs while setup runs.
 
 ## Artifact
 
 The primary release artifact is:
 
 ```text
-PriorityGear-v0.3.2-win-x64-installer.zip
+PriorityGear-v0.3.3-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI app, CLI, and System Mode service binaries.
@@ -17,7 +17,7 @@ The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI
 Double-click `PriorityGear.Setup.exe` and approve UAC. The installer:
 
 - requires elevation;
-- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.2`;
+- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.3`;
 - configures `PriorityGear.Service` as LocalSystem;
 - starts or restarts the service;
 - confirms the status pipe responds;
@@ -52,11 +52,7 @@ For silent uninstall:
 
 ## winget
 
-The installer is submitted for winget distribution as a zip package with nested `PriorityGear.Setup.exe`:
-
-https://github.com/microsoft/winget-pkgs/pull/375643
-
-The winget package is not available until Microsoft validation is complete, the PR is merged, and `winget search` can find it.
+winget registration is not done in this release. A previous submission was closed while the installer progress fix is prepared. The package must not be treated as available until a future winget PR is validated, merged, and `winget search` can find it.
 
 ## Boundaries
 
