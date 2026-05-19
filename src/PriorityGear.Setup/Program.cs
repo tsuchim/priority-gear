@@ -356,14 +356,9 @@ Options:
                 log.Info("Service is not installed.");
             }
 
-            if (Directory.Exists(plan.BaseInstallDirectory))
-            {
-                Directory.Delete(plan.BaseInstallDirectory, recursive: true);
-                log.Info($"Removed installed program files: {plan.BaseInstallDirectory}");
-            }
-
             DeleteUninstallRegistration(plan, log);
             DeleteStartMenuShortcut(plan, log);
+            RemoveInstallDirectory(plan, log);
             log.Info($"Preserved data directory: {plan.ProgramDataDirectory}");
             log.Info("Delete ProgramData manually only if machine rules and logs are no longer needed.");
         }
@@ -618,6 +613,42 @@ Options:
         {
             StartMenuShortcut.Delete(plan);
             log.Info($"Removed Start Menu shortcut if present: {plan.StartMenuShortcutPath}");
+        }
+
+        private static void RemoveInstallDirectory(SetupInstallPlan plan, SetupLog log)
+        {
+            if (!Directory.Exists(plan.BaseInstallDirectory))
+            {
+                log.Info($"Installed program files were already absent: {plan.BaseInstallDirectory}");
+                return;
+            }
+
+            string currentProcessPath = Environment.ProcessPath ?? Application.ExecutablePath;
+            if (Path.GetFullPath(currentProcessPath).StartsWith(
+                    Path.GetFullPath(plan.BaseInstallDirectory) + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                ScheduleInstallDirectoryRemoval(plan.BaseInstallDirectory, log);
+                return;
+            }
+
+            Directory.Delete(plan.BaseInstallDirectory, recursive: true);
+            log.Info($"Removed installed program files: {plan.BaseInstallDirectory}");
+        }
+
+        private static void ScheduleInstallDirectoryRemoval(string installDirectory, SetupLog log)
+        {
+            string command = $"timeout /t 2 /nobreak > nul & rmdir /s /q \"{installDirectory}\"";
+            using Process process = Process.Start(new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c {command}",
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System),
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }) ?? throw new InvalidOperationException("Failed to schedule installed program file removal.");
+
+            log.Info($"Scheduled installed program file removal after setup exits: {installDirectory}; cleanup pid={process.Id}");
         }
 
         private sealed class ProductionInstallerExecutor(SetupInstallPlan plan, SetupLog log, string payloadDirectory) : IInstallerExecutor
