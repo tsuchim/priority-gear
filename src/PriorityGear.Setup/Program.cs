@@ -309,6 +309,7 @@ Options:
             }
 
             WriteUninstallRegistration(plan, log);
+            CreateStartMenuShortcut(plan, log);
             log.Section("Final verdict");
             log.Info(result.Message);
             return result;
@@ -362,6 +363,7 @@ Options:
             }
 
             DeleteUninstallRegistration(plan, log);
+            DeleteStartMenuShortcut(plan, log);
             log.Info($"Preserved data directory: {plan.ProgramDataDirectory}");
             log.Info("Delete ProgramData manually only if machine rules and logs are no longer needed.");
         }
@@ -595,11 +597,27 @@ Options:
             log.Info($"Registered uninstall entry: HKLM\\{keyPath}");
         }
 
+        private static void CreateStartMenuShortcut(SetupInstallPlan plan, SetupLog log)
+        {
+            log.Section("Start Menu registration");
+            ShortcutSpec spec = StartMenuShortcut.CreateSpec(plan);
+            log.Info($"Shortcut path: {spec.ShortcutPath}");
+            log.Info($"Shortcut target: {spec.TargetPath}");
+            StartMenuShortcut.Create(plan);
+            log.Info("Start Menu shortcut registered.");
+        }
+
         private static void DeleteUninstallRegistration(SetupInstallPlan plan, SetupLog log)
         {
             string keyPath = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{UninstallRegistration.KeyName(plan.Version)}";
             Microsoft.Win32.Registry.LocalMachine.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false);
             log.Info($"Removed uninstall entry if present: HKLM\\{keyPath}");
+        }
+
+        private static void DeleteStartMenuShortcut(SetupInstallPlan plan, SetupLog log)
+        {
+            StartMenuShortcut.Delete(plan);
+            log.Info($"Removed Start Menu shortcut if present: {plan.StartMenuShortcutPath}");
         }
 
         private sealed class ProductionInstallerExecutor(SetupInstallPlan plan, SetupLog log, string payloadDirectory) : IInstallerExecutor

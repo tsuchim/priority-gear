@@ -18,6 +18,8 @@ public sealed class SetupPlanningTests
         Assert.Contains(plan.VersionInstallDirectory, plan.ServiceExePath);
         Assert.Contains("PriorityGear.Setup.exe", plan.SetupExePath);
         Assert.Contains(plan.VersionInstallDirectory, plan.SetupExePath);
+        Assert.Contains("PriorityGear.App.exe", plan.AppExePath);
+        Assert.Contains(plan.VersionInstallDirectory, plan.AppExePath);
     }
 
     [Fact]
@@ -126,6 +128,18 @@ public sealed class SetupPlanningTests
         Assert.Equal(plan.VersionInstallDirectory, values["InstallLocation"]);
         Assert.Equal($"\"{plan.SetupExePath}\" --uninstall", values["UninstallString"]);
         Assert.Equal($"\"{plan.SetupExePath}\" --uninstall --silent", values["QuietUninstallString"]);
+    }
+
+    [Fact]
+    public void StartMenuShortcutTargetsInstalledGuiApp()
+    {
+        SetupInstallPlan plan = SetupInstallPlan.Create("v0.3.4");
+        ShortcutSpec spec = StartMenuShortcut.CreateSpec(plan);
+
+        Assert.EndsWith(Path.Combine("PriorityGear", "PriorityGear.lnk"), spec.ShortcutPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(plan.AppExePath, spec.TargetPath);
+        Assert.Equal(plan.VersionInstallDirectory, spec.WorkingDirectory);
+        Assert.Equal("PriorityGear", spec.Description);
     }
 
     private static string FindRepoRoot()
