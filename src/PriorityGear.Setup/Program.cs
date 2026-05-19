@@ -643,6 +643,7 @@ Options:
             {
                 FileName = "cmd.exe",
                 Arguments = $"/c {command}",
+                WorkingDirectory = Environment.GetFolderPath(Environment.SpecialFolder.System),
                 UseShellExecute = false,
                 CreateNoWindow = true
             }) ?? throw new InvalidOperationException("Failed to schedule installed program file removal.");
