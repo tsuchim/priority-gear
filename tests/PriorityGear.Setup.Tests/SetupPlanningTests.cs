@@ -142,6 +142,29 @@ public sealed class SetupPlanningTests
         Assert.Equal("PriorityGear", spec.Description);
     }
 
+    [Fact]
+    public void UninstallRemovesRegistrationAndShortcutBeforeInstallDirectory()
+    {
+        string program = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "PriorityGear.Setup", "Program.cs"));
+
+        Assert.True(
+            program.IndexOf("DeleteUninstallRegistration(plan, log);", StringComparison.Ordinal) <
+            program.IndexOf("DeleteStartMenuShortcut(plan, log);", StringComparison.Ordinal));
+        Assert.True(
+            program.IndexOf("DeleteStartMenuShortcut(plan, log);", StringComparison.Ordinal) <
+            program.IndexOf("RemoveInstallDirectory(plan, log);", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void UninstallSchedulesInstallDirectoryRemovalWhenSetupRunsFromInstallRoot()
+    {
+        string program = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "PriorityGear.Setup", "Program.cs"));
+
+        Assert.Contains("ScheduleInstallDirectoryRemoval(plan.BaseInstallDirectory, log);", program);
+        Assert.Contains("timeout /t 2 /nobreak", program);
+        Assert.Contains("rmdir /s /q", program);
+    }
+
     private static string FindRepoRoot()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
