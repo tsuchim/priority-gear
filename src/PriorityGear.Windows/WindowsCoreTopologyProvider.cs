@@ -34,11 +34,8 @@ public sealed class WindowsCoreTopologyProvider
                 LogicalProcessorInformationEx info = Marshal.PtrToStructure<LogicalProcessorInformationEx>(item);
                 ProcessorRelationship relationship = Marshal.PtrToStructure<ProcessorRelationship>(nint.Add(item, 8));
                 ulong mask = relationship.GroupMask.Mask;
-                CoreEfficiencyClass efficiencyClass = relationship.EfficiencyClass > 0
-                    ? CoreEfficiencyClass.Efficiency
-                    : CoreEfficiencyClass.Performance;
                 ushort group = relationship.GroupCount == 1 ? relationship.GroupMask.Group : (ushort)1;
-                cores.Add(new PhysicalCoreInfo(cores.Count, mask, efficiencyClass, group));
+                cores.Add(new PhysicalCoreInfo(cores.Count, mask, relationship.EfficiencyClass, group));
                 offset += (int)info.Size;
             }
 

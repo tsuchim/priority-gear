@@ -1,13 +1,6 @@
 namespace PriorityGear.Core;
 
-public enum CoreEfficiencyClass
-{
-    Unknown,
-    Efficiency,
-    Performance
-}
-
-public sealed record PhysicalCoreInfo(int CoreIndex, ulong LogicalProcessorMask, CoreEfficiencyClass EfficiencyClass, ushort ProcessorGroup = 0);
+public sealed record PhysicalCoreInfo(int CoreIndex, ulong LogicalProcessorMask, byte EfficiencyClass, ushort ProcessorGroup = 0);
 
 public sealed record CoreReservePlan(bool Succeeded, ulong? AllowedLogicalProcessorMask, string Message)
 {
@@ -50,8 +43,9 @@ public static class CoreReservePlanner
             return CoreReservePlan.Failure("Core Reserve does not support systems that require multiple processor groups.");
         }
 
+        bool hasHeterogeneousEfficiencyClass = cores.Any(static c => c.EfficiencyClass != 0);
         List<PhysicalCoreInfo> reserved = cores
-            .OrderByDescending(static c => c.EfficiencyClass == CoreEfficiencyClass.Performance)
+            .OrderByDescending(static c => c.EfficiencyClass)
             .ThenBy(static c => c.CoreIndex)
             .Take(reserveCount)
             .ToList();
@@ -74,8 +68,7 @@ public static class CoreReservePlanner
             return CoreReservePlan.Failure("Core Reserve would leave no logical processors available.");
         }
 
-        bool hasPerformanceClass = cores.Any(static c => c.EfficiencyClass == CoreEfficiencyClass.Performance);
-        string message = hasPerformanceClass
+        string message = hasHeterogeneousEfficiencyClass
             ? $"Reserved {reserveCount} physical core(s), preferring P-cores."
             : $"Reserved {reserveCount} physical core(s); P-core/E-core distinction is unavailable.";
 

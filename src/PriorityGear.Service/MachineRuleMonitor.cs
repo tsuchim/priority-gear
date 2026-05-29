@@ -12,6 +12,9 @@ public sealed class MachineRuleMonitor(
     ServiceProcessDiscovery serviceProcessDiscovery,
     ServiceFileLog log)
 {
+    private readonly Func<int, ProcessPriorityLevel, Win32PriorityResult> _setPriority = priorityApplier.SetPriority;
+    private readonly Func<int, int, CoreReserveApplyResult> _applyCoreReserve = null!;
+
     public MachineRuleMonitor(
         MachineRuleStore store,
         Win32PriorityApplier priorityApplier,
@@ -19,6 +22,18 @@ public sealed class MachineRuleMonitor(
         ServiceFileLog log)
         : this(store, priorityApplier, new WindowsCoreTopologyProvider(), serviceProcessDiscovery, log)
     {
+    }
+
+    public MachineRuleMonitor(
+        MachineRuleStore store,
+        Func<int, ProcessPriorityLevel, Win32PriorityResult> setPriority,
+        Func<int, int, CoreReserveApplyResult> applyCoreReserve,
+        ServiceProcessDiscovery serviceProcessDiscovery,
+        ServiceFileLog log)
+        : this(store, new Win32PriorityApplier(), new WindowsCoreTopologyProvider(), serviceProcessDiscovery, log)
+    {
+        _setPriority = setPriority;
+        _applyCoreReserve = applyCoreReserve;
     }
 
     private readonly Dictionary<string, ProcessRuntimeSummaryDto> _processes = [];
@@ -114,7 +129,7 @@ public sealed class MachineRuleMonitor(
 
     private void ApplyRule(MachinePriorityRule rule, Process process)
     {
-        string key = $"{process.Id}:{rule.Id}:{rule.BasePriority}";
+        string key = SuccessfulApplicationKey(process.Id, rule);
         if (!rule.DryRunOnly && _lastSuccessfulApplications.Contains(key))
         {
             _processes[key] = CreateProcessSummary(rule, process.Id, process.ProcessName, "AlreadyApplied");
@@ -123,7 +138,7 @@ public sealed class MachineRuleMonitor(
 
         Win32PriorityResult result = rule.DryRunOnly
             ? new Win32PriorityResult(true, Win32PriorityStatus.Success, rule.BasePriority, null, "DryRun")
-            : priorityApplier.SetPriority(process.Id, rule.BasePriority);
+            : _setPriority(process.Id, rule.BasePriority);
         string resultText = rule.DryRunOnly ? "DryRun" : result.Succeeded ? "Success" : $"{result.Status}: {result.Message}";
         if (result.Succeeded && !rule.DryRunOnly && rule.CoreReserve > 0)
         {
@@ -155,8 +170,18 @@ public sealed class MachineRuleMonitor(
             resultText);
     }
 
+    private static string SuccessfulApplicationKey(int processId, MachinePriorityRule rule)
+    {
+        return $"{processId}:{rule.Id}:{rule.BasePriority}:coreReserve={rule.CoreReserve}";
+    }
+
     private CoreReserveApplyResult ApplyCoreReserve(int processId, int reserveCount)
     {
+        if (_applyCoreReserve is not null)
+        {
+            return _applyCoreReserve(processId, reserveCount);
+        }
+
         CoreReservePlan plan;
         try
         {

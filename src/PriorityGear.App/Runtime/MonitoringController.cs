@@ -135,23 +135,33 @@ public sealed class MonitoringController
             }
 
             PriorityApplyResult result = _priorityApplier.SetPriority(process.ProcessId, decision.DesiredPriority);
-            _states[process.ProcessId] = ManagedProcessStateUpdater.FromDecision(decision, state, result, now);
+            CoreReserveApplyResult affinity = CoreReserveApplyResult.Disabled();
+            bool fullRuleApplied = result.Succeeded;
+
+            if (result.Succeeded && decision.Rule.CoreReserve > 0)
+            {
+                affinity = _coreAffinityApplier.ApplyCoreReserve(process.ProcessId, decision.Rule.CoreReserve);
+                fullRuleApplied = affinity.Succeeded;
+                if (affinity.Succeeded)
+                {
+                    Log("affinity", $"{process.ExecutableName} ({process.ProcessId}) core reserve {decision.Rule.CoreReserve}: {affinity.Message}");
+                }
+                else
+                {
+                    LogThrottledFailure(now, process, decision, affinity.ErrorCode ?? "CoreReserveFailed", affinity.Message);
+                }
+            }
+
+            PriorityApplyResult stateResult = fullRuleApplied
+                ? result
+                : result.Succeeded
+                    ? PriorityApplyResult.Failure(decision.DesiredPriority, affinity.Message, affinity.ErrorCode ?? "CoreReserveFailed")
+                    : result;
+            _states[process.ProcessId] = ManagedProcessStateUpdater.FromDecision(decision, state, stateResult, now);
 
             if (result.Succeeded)
             {
                 Log("apply", $"{process.ExecutableName} ({process.ProcessId}) -> {decision.DesiredPriority}");
-                if (decision.Rule.CoreReserve > 0)
-                {
-                    CoreReserveApplyResult affinity = _coreAffinityApplier.ApplyCoreReserve(process.ProcessId, decision.Rule.CoreReserve);
-                    if (affinity.Succeeded)
-                    {
-                        Log("affinity", $"{process.ExecutableName} ({process.ProcessId}) core reserve {decision.Rule.CoreReserve}: {affinity.Message}");
-                    }
-                    else
-                    {
-                        LogThrottledFailure(now, process, decision, affinity.ErrorCode ?? "CoreReserveFailed", affinity.Message);
-                    }
-                }
             }
             else
             {

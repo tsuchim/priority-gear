@@ -8,6 +8,6 @@ public sealed record PriorityDecision(
 {
     public bool ShouldApply(ManagedProcessState? state)
     {
-        return state is null || state.LastAppliedPriority != DesiredPriority;
+        return state is null || state.LastSuccessfulApplication != RuleApplicationSignature.FromDecision(this);
     }
 }

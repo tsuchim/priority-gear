@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using PriorityGear.Contracts;
 using PriorityGear.Core;
@@ -309,6 +310,61 @@ public sealed class ServiceCommandHandlerTests
         await Assert.ThrowsAsync<InvalidDataException>(() => PipeJsonProtocol.ReadRequestLineAsync(stream, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task MachineRuleMonitor_ReappliesWhenOnlyCoreReserveChanges()
+    {
+        string processName = Process.GetCurrentProcess().ProcessName + ".exe";
+        MachinePriorityRule rule = RuntimeRule(processName);
+        MachineRuleStore store = StoreWithRules([rule]);
+        List<(int ProcessId, ProcessPriorityLevel Priority)> priorityCalls = [];
+        List<(int ProcessId, int Reserve)> affinityCalls = [];
+        MachineRuleMonitor monitor = MonitorWithFakes(
+            store,
+            (pid, priority) =>
+            {
+                priorityCalls.Add((pid, priority));
+                return new Win32PriorityResult(true, Win32PriorityStatus.Success, priority, null, "OK");
+            },
+            (pid, reserve) =>
+            {
+                affinityCalls.Add((pid, reserve));
+                return CoreReserveApplyResult.Success(reserve, "OK");
+            });
+
+        await monitor.ScanAsync(CancellationToken.None);
+        rule.CoreReserve = 2;
+        store.Save([rule]);
+        await monitor.ScanAsync(CancellationToken.None);
+
+        Assert.True(priorityCalls.Count >= 2);
+        Assert.Contains(affinityCalls, call => call.Reserve == 2);
+        Assert.DoesNotContain(monitor.GetStatus().Processes, process => process.LastResult == "AlreadyApplied");
+    }
+
+    [Fact]
+    public async Task MachineRuleMonitor_FailedCoreReserveIsNotRecordedAsSuccessfulApplication()
+    {
+        string processName = Process.GetCurrentProcess().ProcessName + ".exe";
+        MachinePriorityRule rule = RuntimeRule(processName);
+        rule.CoreReserve = 1;
+        MachineRuleStore store = StoreWithRules([rule]);
+        int priorityCalls = 0;
+        MachineRuleMonitor monitor = MonitorWithFakes(
+            store,
+            (_, priority) =>
+            {
+                priorityCalls++;
+                return new Win32PriorityResult(true, Win32PriorityStatus.Success, priority, null, "OK");
+            },
+            (_, reserve) => CoreReserveApplyResult.Failure(reserve, "topology unavailable", "CoreTopologyUnsupported"));
+
+        await monitor.ScanAsync(CancellationToken.None);
+        await monitor.ScanAsync(CancellationToken.None);
+
+        Assert.True(priorityCalls >= 2);
+        Assert.Contains(monitor.GetStatus().Processes, process => process.LastResult.Contains("CoreReserveFailed", StringComparison.Ordinal));
+    }
+
     private static ServiceCommandHandler HandlerWithRules(IReadOnlyList<MachinePriorityRule> rules)
     {
         string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));
@@ -323,5 +379,48 @@ public sealed class ServiceCommandHandlerTests
             new MachineRuleMonitor(store, new Win32PriorityApplier(), new ServiceProcessDiscovery(new Win32PriorityApplier()), log),
             new ServiceProcessDiscovery(new Win32PriorityApplier()),
             () => new PrivilegeEnableResult(true, false, Win32PriorityStatus.PrivilegeUnavailable, 1300, "Unavailable"));
+    }
+
+    private static MachinePriorityRule RuntimeRule(string processName)
+    {
+        return new MachinePriorityRule
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = processName,
+            ExecutableName = processName,
+            BasePriority = ProcessPriorityLevel.Normal,
+            Enabled = true,
+            ApprovedByAdmin = true
+        };
+    }
+
+    private static MachineRuleStore StoreWithRules(IReadOnlyList<MachinePriorityRule> rules)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "rules.machine.json");
+        MachineRuleStore store = new(path);
+        store.Save(rules);
+        return store;
+    }
+
+    private static MachineRuleMonitor MonitorWithFakes(
+        MachineRuleStore store,
+        Func<int, ProcessPriorityLevel, Win32PriorityResult> setPriority,
+        Func<int, int, CoreReserveApplyResult> applyCoreReserve)
+    {
+        return new MachineRuleMonitor(
+            store,
+            setPriority,
+            applyCoreReserve,
+            new ServiceProcessDiscovery(new Win32PriorityApplier()),
+            TempLog());
+    }
+
+    private static ServiceFileLog TempLog()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Service.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        return new ServiceFileLog(Path.Combine(directory, "service-current.log"));
     }
 }

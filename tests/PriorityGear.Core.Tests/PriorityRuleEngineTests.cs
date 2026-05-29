@@ -132,7 +132,7 @@ public sealed class PriorityRuleEngineTests
     }
 
     [Fact]
-    public void ShouldApply_ReturnsFalse_WhenLastAppliedPriorityMatchesDesiredPriority()
+    public void ShouldApply_ReturnsFalse_WhenLastSuccessfulApplicationMatchesRuleEffect()
     {
         PriorityRule rule = PriorityRule.ForExecutable("sample.exe");
         ProcessSnapshot process = Process(42, "sample.exe");
@@ -142,10 +142,32 @@ public sealed class PriorityRuleEngineTests
             ProcessId = 42,
             ExecutablePath = @"C:\Tools\sample.exe",
             RuleId = rule.Id,
-            LastAppliedPriority = ProcessPriorityLevel.Normal
+            LastAppliedPriority = ProcessPriorityLevel.Normal,
+            LastSuccessfulApplication = RuleApplicationSignature.FromDecision(decision)
         };
 
         Assert.False(decision.ShouldApply(state));
+    }
+
+    [Fact]
+    public void ShouldApply_ReturnsTrue_WhenOnlyCoreReserveChanges()
+    {
+        PriorityRule rule = PriorityRule.ForExecutable("sample.exe");
+        ProcessSnapshot process = Process(42, "sample.exe");
+        PriorityDecision decision = new(rule, process, false, ProcessPriorityLevel.Normal);
+        ManagedProcessState state = new()
+        {
+            ProcessId = 42,
+            ExecutablePath = @"C:\Tools\sample.exe",
+            RuleId = rule.Id,
+            LastAppliedPriority = ProcessPriorityLevel.Normal,
+            LastSuccessfulApplication = RuleApplicationSignature.FromDecision(decision)
+        };
+
+        rule.CoreReserve = 2;
+        PriorityDecision changed = new(rule, process, false, ProcessPriorityLevel.Normal);
+
+        Assert.True(changed.ShouldApply(state));
     }
 
     [Fact]
@@ -169,6 +191,7 @@ public sealed class PriorityRuleEngineTests
 
         Assert.Equal(ProcessPriorityLevel.High, updated.LastAttemptedPriority);
         Assert.Equal(ProcessPriorityLevel.Normal, updated.LastAppliedPriority);
+        Assert.Null(updated.LastSuccessfulApplication);
         Assert.False(updated.LastApplyResult!.Succeeded);
     }
 

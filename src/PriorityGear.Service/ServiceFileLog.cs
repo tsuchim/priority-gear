@@ -7,13 +7,23 @@ public sealed class ServiceFileLog
     private readonly object _gate = new();
 
     public ServiceFileLog()
-    {
-        string directory = System.IO.Path.Combine(
+        : this(System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "PriorityGear",
-            "Logs");
-        Directory.CreateDirectory(directory);
-        Path = System.IO.Path.Combine(directory, "service-current.log");
+            "Logs",
+            "service-current.log"))
+    {
+    }
+
+    public ServiceFileLog(string path)
+    {
+        string? directory = System.IO.Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        Path = path;
     }
 
     public string Path { get; }

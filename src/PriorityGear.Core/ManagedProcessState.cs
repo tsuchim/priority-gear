@@ -14,6 +14,8 @@ public sealed class ManagedProcessState
 
     public ProcessPriorityLevel? LastAppliedPriority { get; set; }
 
+    public RuleApplicationSignature? LastSuccessfulApplication { get; set; }
+
     public PriorityApplyResult? LastApplyResult { get; set; }
 
     public DateTimeOffset? LastApplyTime { get; set; }

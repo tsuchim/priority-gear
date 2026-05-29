@@ -129,6 +129,30 @@ public sealed class MonitoringControllerTests
 
         Assert.Single(affinity.Calls);
         Assert.Contains(logs, entry => entry.Category == "failure" && entry.Message.Contains("topology unavailable", StringComparison.Ordinal));
+        Assert.Null(snapshotState(controller, 10)?.LastSuccessfulApplication);
+    }
+
+    [Fact]
+    public void CoreReserveChangeReappliesEvenWhenPriorityIsUnchanged()
+    {
+        FakePriorityApplier applier = new();
+        FakeCoreAffinityApplier affinity = new() { Result = CoreReserveApplyResult.Success(1, "OK") };
+        MonitoringController controller = new(
+            new FakeProcessSource([Process(10, "notepad.exe")]),
+            applier,
+            new FakeForegroundSource(null),
+            new MonitoringOptions(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10)),
+            affinity);
+        PriorityRule rule = Rule("notepad.exe", ProcessPriorityLevel.Normal, ProcessPriorityLevel.AboveNormal);
+        controller.SetRules([rule]);
+
+        controller.Start(Time(0));
+        rule.CoreReserve = 1;
+        controller.Refresh(Time(1));
+
+        Assert.Equal(2, applier.Calls.Count);
+        Assert.Single(affinity.Calls);
+        Assert.Equal(1, affinity.Calls[0].ReserveCount);
     }
 
     private static MonitoringController CreateController(
@@ -160,6 +184,13 @@ public sealed class MonitoringControllerTests
     private static ProcessSnapshot Process(int pid, string name)
     {
         return new ProcessSnapshot(pid, name, $@"C:\Temp\{name}", ProcessPriorityLevel.Normal, ProcessCapability.ControllableNow);
+    }
+
+    private static ManagedProcessState? snapshotState(MonitoringController controller, int processId)
+    {
+        MonitoringSnapshot snapshot = controller.Refresh(Time(5));
+        snapshot.States.TryGetValue(processId, out ManagedProcessState? state);
+        return state;
     }
 
     private sealed class FakeProcessSource(IReadOnlyList<ProcessSnapshot> processes) : IProcessSource

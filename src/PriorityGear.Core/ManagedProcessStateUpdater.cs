@@ -25,6 +25,7 @@ public static class ManagedProcessStateUpdater
         if (result.Succeeded)
         {
             state.LastAppliedPriority = decision.DesiredPriority;
+            state.LastSuccessfulApplication = RuleApplicationSignature.FromDecision(decision);
         }
 
         return state;

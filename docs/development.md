@@ -37,7 +37,7 @@ dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuratio
 - Metric filters narrow the process grid to rows with measured positive CPU, GPU, or Disk I/O usage in the latest snapshot.
 - Priority selectors are ordered from highest supported priority to lowest.
 - New rules default active priority to `Same as normal`; existing rules with explicit active overrides keep that behavior.
-- `Core Reserve` defaults to `0`. Nonzero values require valid Windows physical-core topology and affinity application. Invalid reserve counts or unsupported topology must be reported as failures, not treated as success.
+- `Core Reserve` defaults to `0`. Nonzero values require valid Windows physical-core topology and affinity application. Invalid reserve counts or unsupported topology must be reported as failures, not treated as success. Windows `PROCESSOR_RELATIONSHIP.EfficiencyClass` is kept as a raw numeric value: all-zero means homogeneous or unavailable distinction; on heterogeneous systems, higher values are treated as higher-performance cores and reserved first.
 
 ## Portable Publish
 
