@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Threading;
 using PriorityGear.App.Runtime;
 using PriorityGear.App.Storage;
@@ -18,11 +19,13 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ProcessRowViewModel> _processes = [];
     private readonly ObservableCollection<RuleViewModel> _rules = [];
     private readonly ObservableCollection<string> _logs = [];
+    private readonly IResourceSnapshotService _resourceSnapshotService = new ResourceSnapshotService();
     private readonly RuleStore _ruleStore = new();
     private readonly SystemModeClient _systemModeClient = new();
     private readonly MonitoringController _monitoringController;
     private readonly DispatcherTimer _timer = new();
     private Forms.NotifyIcon? _notifyIcon;
+    private IReadOnlyDictionary<int, ProcessResourceSnapshot> _latestResources = new Dictionary<int, ProcessResourceSnapshot>();
 
     public MainWindow()
     {
@@ -32,17 +35,17 @@ public partial class MainWindow : Window
         _monitoringController = new MonitoringController(
             new WindowsProcessSource(processPriorityService),
             new WindowsPriorityApplier(processPriorityService),
-            new WindowsForegroundProcessSource(new ForegroundWindowProvider()));
+            new WindowsForegroundProcessSource(new ForegroundWindowProvider()),
+            coreAffinityApplier: new WindowsCoreAffinityApplier(new WindowsCoreTopologyProvider()));
         _monitoringController.LogProduced += (_, entry) => Log(entry.ToString());
 
         ProcessGrid.ItemsSource = _processes;
+        CollectionViewSource.GetDefaultView(_processes).Filter = ProcessFilter;
         RuleGrid.ItemsSource = _rules;
         LogList.ItemsSource = _logs;
 
-        foreach (DataGridComboBoxColumn column in RuleGrid.Columns.OfType<DataGridComboBoxColumn>())
-        {
-            column.ItemsSource = Enum.GetValues<ProcessPriorityLevel>();
-        }
+        ((DataGridComboBoxColumn)RuleGrid.Columns[5]).ItemsSource = PrioritySelectorOptions.ConcretePriorities;
+        ((DataGridComboBoxColumn)RuleGrid.Columns[6]).ItemsSource = PrioritySelectorOptions.ActivePriorities;
 
         LoadRules();
         ConfigureTimer();
@@ -157,6 +160,26 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void SnapshotButton_Click(object sender, RoutedEventArgs e)
+    {
+        SnapshotButton.IsEnabled = false;
+        SnapshotStatusText.Text = "Capturing 3 second resource snapshot...";
+        try
+        {
+            _latestResources = await _resourceSnapshotService.CaptureAsync(TimeSpan.FromSeconds(3), CancellationToken.None);
+            SnapshotStatusText.Text = $"Snapshot captured for {_latestResources.Count} processes. GPU shows unsupported unless verified attribution is available.";
+            RefreshSnapshot(_monitoringController.Refresh(DateTimeOffset.Now));
+        }
+        catch (OperationCanceledException)
+        {
+            SnapshotStatusText.Text = "Snapshot cancelled.";
+        }
+        finally
+        {
+            SnapshotButton.IsEnabled = true;
+        }
+    }
+
     public static string FormatSystemModeStatus(ServiceStatusDto status)
     {
         MachineRuleMonitorStatusDto monitor = status.MachineRuleMonitor;
@@ -239,15 +262,47 @@ public partial class MainWindow : Window
 
     private void RefreshSnapshot(MonitoringSnapshot snapshot)
     {
+        snapshot = snapshot with { Resources = _latestResources };
         _processes.Clear();
         foreach (ProcessSnapshot process in snapshot.Processes.OrderBy(static p => p.ExecutableName).ThenBy(static p => p.ProcessId))
         {
             _processes.Add(ProcessRowViewModel.From(process, snapshot));
         }
 
+        CollectionViewSource.GetDefaultView(_processes).Refresh();
         StatusText.Text = snapshot.IsRunning
             ? $"Monitoring running - {_processes.Count} processes - {_rules.Count} rules"
             : $"Monitoring stopped - {_processes.Count} processes - {_rules.Count} rules";
+    }
+
+    private void ProcessFilter_Changed(object sender, EventArgs e)
+    {
+        CollectionViewSource.GetDefaultView(_processes).Refresh();
+    }
+
+    private bool ProcessFilter(object item)
+    {
+        if (item is not ProcessRowViewModel row)
+        {
+            return false;
+        }
+
+        string text = ProcessNameFilterBox?.Text ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(text) &&
+            !row.ExecutableName.Contains(text, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string metricFilter = (MetricFilterBox?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "All processes";
+        ProcessMetricFilter filter = metricFilter switch
+        {
+            "CPU usage" => ProcessMetricFilter.Cpu,
+            "GPU usage" => ProcessMetricFilter.Gpu,
+            "Disk I/O" => ProcessMetricFilter.Disk,
+            _ => ProcessMetricFilter.All
+        };
+        return ProcessListFilter.Matches(row, text, filter);
     }
 
     private void Log(string message)

@@ -71,6 +71,8 @@ The setup executes `sc.exe` through structured `ProcessStartInfo.ArgumentList` e
 
 The service includes a conservative machine-rule monitor. It loads `%ProgramData%\PriorityGear\rules.machine.json`, scans processes every 30 seconds, and applies base priority only for enabled administrator-approved rules. Active foreground priority remains a User Mode concept and is not implemented in System Mode.
 
+Machine rules may also carry `coreReserve`. The default is `0`, which preserves current affinity behavior. A nonzero value requires Windows physical-core topology and applies a process affinity mask that leaves the requested number of physical cores unused for the matched process. When topology exposes P-core/E-core distinction, P-cores are reserved first. If topology is unavailable, the reserve count is invalid, or affinity cannot be applied to the target process, the service reports an explicit failure rather than silently continuing as if Core Reserve worked.
+
 The monitor records last scan time, rule counts, matched process count, bounded per-rule summaries, and bounded per-process apply results. Status pipe responses include these summaries without dumping unbounded process lists.
 
 The GUI System Mode status panel is read-only. It displays only data already exposed by the status pipe, including service identity, service binary/version path, `SeDebugPrivilege`, monitor summary, and service-process discovery truncation metadata. It does not provide shared-host mutation controls.

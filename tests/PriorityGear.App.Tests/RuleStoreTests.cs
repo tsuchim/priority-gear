@@ -67,6 +67,49 @@ public sealed class RuleStoreTests
         Assert.Equal(keep.Id, load.Rules.Single().Id);
     }
 
+    [Fact]
+    public void Load_LegacyActivePriorityWithoutModeKeepsActiveOverride()
+    {
+        string path = TempPath();
+        Guid id = Guid.NewGuid();
+        File.WriteAllText(path, $$"""
+        [
+          {
+            "id": "{{id}}",
+            "displayName": "legacy.exe",
+            "enabled": true,
+            "match": { "executableName": "legacy.exe" },
+            "basePriority": 2,
+            "activePriority": 4,
+            "scope": 0
+          }
+        ]
+        """);
+
+        RuleStoreLoadResult load = new RuleStore(path).Load();
+
+        Assert.True(load.Succeeded);
+        Assert.True(load.Rules.Single().ActiveModeEnabled);
+        Assert.Equal(ProcessPriorityLevel.High, load.Rules.Single().ActivePriority);
+    }
+
+    [Fact]
+    public void Save_NewRulePersistsSameAsNormalAndCoreReserveDefault()
+    {
+        string path = TempPath();
+        PriorityRule rule = PriorityRule.ForExecutable("new.exe");
+
+        Assert.False(rule.ActiveModeEnabled);
+        Assert.Equal(0, rule.CoreReserve);
+
+        RuleStore store = new(path);
+        Assert.True(store.Save([rule]).Succeeded);
+        string json = File.ReadAllText(path);
+
+        Assert.Contains("\"activeModeEnabled\": false", json);
+        Assert.Contains("\"coreReserve\": 0", json);
+    }
+
     private static string TempPath()
     {
         string directory = Path.Combine(Path.GetTempPath(), "PriorityGear.Tests", Guid.NewGuid().ToString("N"));

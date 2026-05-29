@@ -15,6 +15,7 @@ public sealed class SystemModeContractTests
             Enabled = true,
             ExecutableName = "example.exe",
             BasePriority = ProcessPriorityLevel.High,
+            CoreReserve = 1,
             ApprovedByAdmin = true,
             CreatedBy = "admin"
         };
@@ -25,6 +26,7 @@ public sealed class SystemModeContractTests
         Assert.NotNull(roundTrip);
         Assert.True(roundTrip.ApprovedByAdmin);
         Assert.Equal(ProcessPriorityLevel.High, roundTrip.BasePriority);
+        Assert.Equal(1, roundTrip.CoreReserve);
     }
 
     [Fact]

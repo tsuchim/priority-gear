@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using PriorityGear.Contracts;
+using PriorityGear.Core;
 using PriorityGear.Windows;
 
 namespace PriorityGear.Service;
@@ -7,9 +8,19 @@ namespace PriorityGear.Service;
 public sealed class MachineRuleMonitor(
     MachineRuleStore store,
     Win32PriorityApplier priorityApplier,
+    WindowsCoreTopologyProvider topologyProvider,
     ServiceProcessDiscovery serviceProcessDiscovery,
     ServiceFileLog log)
 {
+    public MachineRuleMonitor(
+        MachineRuleStore store,
+        Win32PriorityApplier priorityApplier,
+        ServiceProcessDiscovery serviceProcessDiscovery,
+        ServiceFileLog log)
+        : this(store, priorityApplier, new WindowsCoreTopologyProvider(), serviceProcessDiscovery, log)
+    {
+    }
+
     private readonly Dictionary<string, ProcessRuntimeSummaryDto> _processes = [];
     private readonly HashSet<string> _lastSuccessfulApplications = [];
     private readonly TimeSpan _scanInterval = TimeSpan.FromSeconds(30);
@@ -113,6 +124,16 @@ public sealed class MachineRuleMonitor(
         Win32PriorityResult result = rule.DryRunOnly
             ? new Win32PriorityResult(true, Win32PriorityStatus.Success, rule.BasePriority, null, "DryRun")
             : priorityApplier.SetPriority(process.Id, rule.BasePriority);
+        string resultText = rule.DryRunOnly ? "DryRun" : result.Succeeded ? "Success" : $"{result.Status}: {result.Message}";
+        if (result.Succeeded && !rule.DryRunOnly && rule.CoreReserve > 0)
+        {
+            CoreReserveApplyResult affinity = ApplyCoreReserve(process.Id, rule.CoreReserve);
+            resultText = affinity.Succeeded ? $"{resultText}; {affinity.Message}" : $"{resultText}; CoreReserveFailed: {affinity.Message}";
+            result = affinity.Succeeded
+                ? result
+                : new Win32PriorityResult(false, Win32PriorityStatus.UnknownWin32Error, rule.BasePriority, null, affinity.Message);
+        }
+
         if (result.Succeeded)
         {
             _successes++;
@@ -131,7 +152,36 @@ public sealed class MachineRuleMonitor(
             rule,
             process.Id,
             process.ProcessName,
-            rule.DryRunOnly ? "DryRun" : result.Succeeded ? "Success" : $"{result.Status}: {result.Message}");
+            resultText);
+    }
+
+    private CoreReserveApplyResult ApplyCoreReserve(int processId, int reserveCount)
+    {
+        CoreReservePlan plan;
+        try
+        {
+            plan = CoreReservePlanner.Plan(topologyProvider.GetPhysicalCores(), reserveCount);
+        }
+        catch (Exception ex)
+        {
+            return CoreReserveApplyResult.Failure(reserveCount, ex.Message, "CoreTopologyUnavailable");
+        }
+
+        if (!plan.Succeeded || plan.AllowedLogicalProcessorMask is null)
+        {
+            return CoreReserveApplyResult.Failure(reserveCount, plan.Message, "CoreTopologyUnsupported");
+        }
+
+        try
+        {
+            using Process process = Process.GetProcessById(processId);
+            process.ProcessorAffinity = (nint)plan.AllowedLogicalProcessorMask.Value;
+            return CoreReserveApplyResult.Success(reserveCount, plan.Message);
+        }
+        catch (Exception ex)
+        {
+            return CoreReserveApplyResult.Failure(reserveCount, ex.Message, "AffinityApplyFailed");
+        }
     }
 
     private void ApplyServiceRule(MachinePriorityRule rule)

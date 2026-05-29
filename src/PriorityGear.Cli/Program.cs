@@ -127,6 +127,21 @@ static string ReadStringOption(string[] args, string name)
     throw new ArgumentException($"Missing required option {name}.");
 }
 
+static int ReadIntOptionOrDefault(string[] args, string name, int defaultValue)
+{
+    for (int index = 0; index < args.Length - 1; index++)
+    {
+        if (string.Equals(args[index], name, StringComparison.OrdinalIgnoreCase))
+        {
+            return int.TryParse(args[index + 1], out int value)
+                ? value
+                : throw new ArgumentException($"{name} must be an integer.");
+        }
+    }
+
+    return defaultValue;
+}
+
 static void PrintUsage()
 {
     Console.Error.WriteLine("Usage:");
@@ -136,9 +151,9 @@ static void PrintUsage()
     Console.Error.WriteLine("  PriorityGear.Cli service apply-rule --rule-id <guid> --pid <pid> --priority BelowNormal");
     Console.Error.WriteLine("  PriorityGear.Cli service probe --pid <pid>");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules list");
-    Console.Error.WriteLine("  PriorityGear.Cli machine-rules add --name <name> --exe <exeName> --priority BelowNormal --approve");
-    Console.Error.WriteLine("  PriorityGear.Cli machine-rules add-service --name <name> --service-name <serviceName> --priority BelowNormal --approve [--dry-run] [--allow-shared-service-host]");
-    Console.Error.WriteLine("  PriorityGear.Cli machine-rules update --id <id> --name <name> --exe <exeName> --priority BelowNormal --approve");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules add --name <name> --exe <exeName> --priority BelowNormal --approve [--core-reserve <count>]");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules add-service --name <name> --service-name <serviceName> --priority BelowNormal --approve [--dry-run] [--allow-shared-service-host] [--core-reserve <count>]");
+    Console.Error.WriteLine("  PriorityGear.Cli machine-rules update --id <id> --name <name> --exe <exeName> --priority BelowNormal --approve [--core-reserve <count>]");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules enable|disable|delete --id <id>");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules approve|unapprove --id <id>");
     Console.Error.WriteLine("  PriorityGear.Cli machine-rules reload");
@@ -183,6 +198,7 @@ static async Task<int> HandleMachineRulesAsync(string[] args)
                 DisplayName = ReadStringOption(args, "--name"),
                 ExecutableName = ReadStringOption(args, "--exe"),
                 BasePriority = ReadPriorityOption(args, "--priority"),
+                CoreReserve = ReadIntOptionOrDefault(args, "--core-reserve", 0),
                 Enabled = true,
                 ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase))
             }
@@ -195,6 +211,7 @@ static async Task<int> HandleMachineRulesAsync(string[] args)
                 DisplayName = ReadStringOption(args, "--name"),
                 ServiceName = ReadStringOption(args, "--service-name"),
                 BasePriority = ReadPriorityOption(args, "--priority"),
+                CoreReserve = ReadIntOptionOrDefault(args, "--core-reserve", 0),
                 Enabled = true,
                 ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase)),
                 DryRunOnly = args.Any(static arg => string.Equals(arg, "--dry-run", StringComparison.OrdinalIgnoreCase)),
@@ -210,6 +227,7 @@ static async Task<int> HandleMachineRulesAsync(string[] args)
                 DisplayName = ReadStringOption(args, "--name"),
                 ExecutableName = ReadStringOption(args, "--exe"),
                 BasePriority = ReadPriorityOption(args, "--priority"),
+                CoreReserve = ReadIntOptionOrDefault(args, "--core-reserve", 0),
                 Enabled = !args.Any(static arg => string.Equals(arg, "--disabled", StringComparison.OrdinalIgnoreCase)),
                 ApprovedByAdmin = args.Any(static arg => string.Equals(arg, "--approve", StringComparison.OrdinalIgnoreCase))
             }

@@ -6,5 +6,6 @@ public sealed record MonitoringSnapshot(
     IReadOnlyList<ProcessSnapshot> Processes,
     IReadOnlyDictionary<int, ManagedProcessState> States,
     IReadOnlyDictionary<int, PriorityDecision> Decisions,
+    IReadOnlyDictionary<int, ProcessResourceSnapshot> Resources,
     bool IsRunning,
     DateTimeOffset CapturedAt);

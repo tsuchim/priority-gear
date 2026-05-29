@@ -105,6 +105,32 @@ public sealed class MonitoringControllerTests
         Assert.Equal(ProcessPriorityLevel.High, applier.Calls[0].Priority);
     }
 
+    [Fact]
+    public void CoreReserveFailureIsExplicitAndDoesNotPretendSuccess()
+    {
+        FakePriorityApplier applier = new();
+        FakeCoreAffinityApplier affinity = new()
+        {
+            Result = CoreReserveApplyResult.Failure(1, "topology unavailable", "CoreTopologyUnsupported")
+        };
+        MonitoringController controller = new(
+            new FakeProcessSource([Process(10, "notepad.exe")]),
+            applier,
+            new FakeForegroundSource(null),
+            new MonitoringOptions(TimeSpan.FromMilliseconds(1), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(10)),
+            affinity);
+        PriorityRule rule = Rule("notepad.exe", ProcessPriorityLevel.Normal, ProcessPriorityLevel.AboveNormal);
+        rule.CoreReserve = 1;
+        controller.SetRules([rule]);
+        List<MonitoringLogEntry> logs = [];
+        controller.LogProduced += (_, entry) => logs.Add(entry);
+
+        controller.Start(Time(0));
+
+        Assert.Single(affinity.Calls);
+        Assert.Contains(logs, entry => entry.Category == "failure" && entry.Message.Contains("topology unavailable", StringComparison.Ordinal));
+    }
+
     private static MonitoringController CreateController(
         FakeProcessSource processes,
         FakePriorityApplier applier,
@@ -127,6 +153,7 @@ public sealed class MonitoringControllerTests
         PriorityRule rule = PriorityRule.ForExecutable(name);
         rule.BasePriority = basePriority;
         rule.ActivePriority = activePriority;
+        rule.ActiveModeEnabled = true;
         return rule;
     }
 
@@ -165,6 +192,19 @@ public sealed class MonitoringControllerTests
         {
             Calls.Add((processId, priority));
             return Result.Succeeded ? PriorityApplyResult.Success(priority) : PriorityApplyResult.Failure(priority, Result.Message, Result.ErrorCode);
+        }
+    }
+
+    private sealed class FakeCoreAffinityApplier : ICoreAffinityApplier
+    {
+        public List<(int ProcessId, int ReserveCount)> Calls { get; } = [];
+
+        public CoreReserveApplyResult Result { get; set; } = CoreReserveApplyResult.Disabled();
+
+        public CoreReserveApplyResult ApplyCoreReserve(int processId, int reserveCount)
+        {
+            Calls.Add((processId, reserveCount));
+            return Result;
         }
     }
 }

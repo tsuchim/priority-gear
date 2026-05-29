@@ -16,6 +16,8 @@ public sealed class PriorityRule
 
     public bool ActiveModeEnabled { get; set; }
 
+    public int CoreReserve { get; set; }
+
     public RuleScope Scope { get; set; }
 
     public string? Notes { get; set; }
@@ -33,8 +35,9 @@ public sealed class PriorityRule
                 FullPath = fullPath
             },
             BasePriority = ProcessPriorityLevel.Normal,
-            ActivePriority = ProcessPriorityLevel.AboveNormal,
-            ActiveModeEnabled = true,
+            ActivePriority = ProcessPriorityLevel.Normal,
+            ActiveModeEnabled = false,
+            CoreReserve = 0,
             Scope = RuleScope.CurrentUser
         };
     }

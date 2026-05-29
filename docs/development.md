@@ -27,6 +27,18 @@ The primary target architecture is x64.
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
+## Current UI Behavior
+
+- The process grid supports case-insensitive process-name filtering.
+- The `3s snapshot` action performs a single manual resource sample. It is not a continuous background monitor.
+- CPU snapshot values are estimated from process CPU-time delta across the sampling interval.
+- Disk I/O snapshot values are estimated from process I/O counter byte deltas across the sampling interval.
+- GPU snapshot values are displayed only when process-attributed GPU data is supported and verified. Unsupported or unavailable GPU attribution is shown explicitly and is not converted to zero.
+- Metric filters narrow the process grid to rows with measured positive CPU, GPU, or Disk I/O usage in the latest snapshot.
+- Priority selectors are ordered from highest supported priority to lowest.
+- New rules default active priority to `Same as normal`; existing rules with explicit active overrides keep that behavior.
+- `Core Reserve` defaults to `0`. Nonzero values require valid Windows physical-core topology and affinity application. Invalid reserve counts or unsupported topology must be reported as failures, not treated as success.
+
 ## Portable Publish
 
 Framework-dependent:

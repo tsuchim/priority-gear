@@ -33,14 +33,30 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.3.4 System Mode Installer Release
+## Usability and Monitoring
 
-`v0.3.4` is the next GitHub release for the formal System Mode installer. It adds the standard Windows launch path by registering PriorityGear in the Start Menu during install.
+The development branch after `v0.3.5` includes usability and monitoring updates:
 
-The release artifact is:
+- Process list filtering by partial process name, case-insensitive.
+- A manual one-shot resource snapshot action. The snapshot samples for about 3 seconds and displays estimated per-process CPU, GPU, and Disk I/O usage where supported.
+- CPU is calculated from process CPU-time delta over the sampling interval.
+- Disk I/O is calculated from process I/O counter deltas over the sampling interval.
+- GPU attribution is shown as unsupported unless PriorityGear can verify a Windows source that attributes GPU usage to process IDs. Unknown GPU data is not reported as zero.
+- The process list can sort by process name, CPU snapshot, GPU snapshot, and Disk I/O snapshot, and can filter to processes with measured CPU, GPU, or Disk I/O usage.
+- Priority selectors are ordered from highest to lowest supported priority.
+- Active priority defaults to `Same as normal`, meaning foreground-active processes use the normal/base priority unless the rule explicitly chooses a separate active override.
+- `Core Reserve` defaults to `0`. A finite nonzero value applies an affinity policy that leaves that many physical cores unused for processes managed by the rule. PriorityGear rejects invalid reserve counts and reports unsupported topology or affinity failures explicitly.
+
+Core Reserve requires Windows physical-core topology and process affinity support. When P-core/E-core distinction is exposed, PriorityGear reserves P-cores first. If the distinction is unavailable, the result is reported as generic physical-core reservation rather than claimed as P-core-aware. Applying affinity to protected or elevated processes follows the same User Mode/System Mode permission boundaries as priority changes.
+
+## v0.3.5 System Mode Installer Release
+
+`v0.3.5` is the latest GitHub release for the formal System Mode installer. It fixes silent uninstall cleanup for package-manager validation after the `v0.3.4` Start Menu installer work.
+
+The GitHub release artifact is:
 
 ```text
-PriorityGear-v0.3.4-win-x64-installer.zip
+PriorityGear-v0.3.5-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to install or update PriorityGear. The installer is AS IS and unsigned unless signing is explicitly added in a later release.
@@ -48,7 +64,7 @@ The zip contains `PriorityGear.Setup.exe`. Double-click it and approve UAC to in
 To build the same installer artifact locally:
 
 ```powershell
-.\scripts\package-release.ps1 -TagName "v0.3.4" -OutputDirectory ".\artifacts\release-test-v0.3.4"
+.\scripts\package-release.ps1 -TagName "v0.3.5" -OutputDirectory ".\artifacts\release-test-v0.3.5"
 ```
 
 The installer installs the GUI app and configures `PriorityGear.Service` as a LocalSystem Windows Service under a versioned directory below `%ProgramFiles%\PriorityGear\versions`. It preserves `%ProgramData%\PriorityGear\rules.machine.json` and logs under `%ProgramData%\PriorityGear\Logs`.
@@ -84,17 +100,21 @@ Post-verification state: `PriorityGear.Service` may remain installed/running, te
 
 ## Artifacts
 
-### v0.3.4 GitHub Installer
+### v0.3.5 GitHub Installer
 
 The current GitHub release artifact is:
 
 ```text
-PriorityGear-v0.3.4-win-x64-installer.zip
+PriorityGear-v0.3.5-win-x64-installer.zip
 ```
 
 It contains `PriorityGear.Setup.exe` and the service/app/CLI payload needed for install or update after UAC approval. It is not Store, MSI, MSIX, or signed packaging.
 
-The installer supports `--install --silent` and `--uninstall --silent`. winget registration is not done in this release; the earlier winget submission was closed because the installed application launch path and documentation were not ready.
+The installer supports `--install --silent` and `--uninstall --silent`.
+
+### winget
+
+winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. GitHub latest is `v0.3.5`, so winget is intentionally behind until a future winget update is prepared and validated. Do not describe winget as unavailable, and do not assume winget has the latest GitHub release until `winget search --id tsuchim.PriorityGear --exact` reports the newer version.
 
 ### v0.1 User Mode Portable Publish
 

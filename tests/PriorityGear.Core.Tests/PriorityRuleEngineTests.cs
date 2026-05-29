@@ -89,6 +89,7 @@ public sealed class PriorityRuleEngineTests
         PriorityRule rule = PriorityRule.ForExecutable("sample.exe");
         rule.BasePriority = ProcessPriorityLevel.BelowNormal;
         rule.ActivePriority = ProcessPriorityLevel.High;
+        rule.ActiveModeEnabled = true;
         ProcessSnapshot process = Process(42, "sample.exe");
 
         PriorityDecision? decision = new PriorityRuleEngine().Decide(process, [rule], 42);
@@ -104,6 +105,7 @@ public sealed class PriorityRuleEngineTests
         PriorityRule rule = PriorityRule.ForExecutable("sample.exe");
         rule.BasePriority = ProcessPriorityLevel.BelowNormal;
         rule.ActivePriority = ProcessPriorityLevel.High;
+        rule.ActiveModeEnabled = true;
         ProcessSnapshot process = Process(42, "sample.exe");
 
         PriorityDecision? decision = new PriorityRuleEngine().Decide(process, [rule], 7);

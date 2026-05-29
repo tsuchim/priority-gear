@@ -9,6 +9,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="2*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="1.8*" />
@@ -35,10 +36,26 @@
             </DockPanel>
         </Border>
 
-        <DataGrid x:Name="ProcessGrid" Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
+        <DockPanel Grid.Row="2" Margin="0,0,0,8">
+            <Button x:Name="SnapshotButton" Content="3s snapshot" Width="104" Margin="0,0,8,0" Click="SnapshotButton_Click" DockPanel.Dock="Left" />
+            <ComboBox x:Name="MetricFilterBox" Width="150" Margin="0,0,8,0" SelectionChanged="ProcessFilter_Changed" DockPanel.Dock="Left">
+                <ComboBoxItem Content="All processes" IsSelected="True" />
+                <ComboBoxItem Content="CPU usage" />
+                <ComboBoxItem Content="GPU usage" />
+                <ComboBoxItem Content="Disk I/O" />
+            </ComboBox>
+            <TextBlock Text="Process filter" VerticalAlignment="Center" Margin="0,0,6,0" DockPanel.Dock="Left" />
+            <TextBox x:Name="ProcessNameFilterBox" Width="220" TextChanged="ProcessFilter_Changed" DockPanel.Dock="Left" />
+            <TextBlock x:Name="SnapshotStatusText" VerticalAlignment="Center" Text="No resource snapshot captured." />
+        </DockPanel>
+
+        <DataGrid x:Name="ProcessGrid" Grid.Row="3" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="PID" Binding="{Binding ProcessId}" Width="70" />
-                <DataGridTextColumn Header="Name" Binding="{Binding ExecutableName}" Width="150" />
+                <DataGridTextColumn Header="Name" Binding="{Binding ExecutableName}" Width="150" SortMemberPath="ExecutableName" />
+                <DataGridTextColumn Header="CPU" Binding="{Binding CpuSnapshot}" Width="105" SortMemberPath="CpuSnapshotValue" />
+                <DataGridTextColumn Header="GPU" Binding="{Binding GpuSnapshot}" Width="150" SortMemberPath="GpuSnapshotValue" />
+                <DataGridTextColumn Header="Disk I/O" Binding="{Binding DiskSnapshot}" Width="120" SortMemberPath="DiskSnapshotValue" />
                 <DataGridTextColumn Header="Current" Binding="{Binding CurrentPriority}" Width="95" />
                 <DataGridTextColumn Header="Rule" Binding="{Binding MatchedRule}" Width="150" />
                 <DataGridTextColumn Header="Desired" Binding="{Binding DesiredPriority}" Width="95" />
@@ -51,9 +68,9 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="3" Text="Rules" FontWeight="SemiBold" Margin="0,12,0,6" />
+        <TextBlock Grid.Row="4" Text="Rules" FontWeight="SemiBold" Margin="0,12,0,6" />
 
-        <DataGrid x:Name="RuleGrid" Grid.Row="4" AutoGenerateColumns="False" SelectionMode="Single" CellEditEnding="RuleGrid_CellEditEnding" CurrentCellChanged="RuleGrid_CurrentCellChanged">
+        <DataGrid x:Name="RuleGrid" Grid.Row="5" AutoGenerateColumns="False" SelectionMode="Single" CellEditEnding="RuleGrid_CellEditEnding" CurrentCellChanged="RuleGrid_CurrentCellChanged">
             <DataGrid.Columns>
                 <DataGridCheckBoxColumn Header="Enabled" Binding="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" Width="75" />
                 <DataGridTextColumn Header="Name" Binding="{Binding DisplayName, UpdateSourceTrigger=LostFocus}" Width="160" />
@@ -61,14 +78,14 @@
                 <DataGridTextColumn Header="Full Path" Binding="{Binding FullPath, UpdateSourceTrigger=LostFocus}" Width="260" />
                 <DataGridTextColumn Header="Path Suffix" Binding="{Binding PathSuffix, UpdateSourceTrigger=LostFocus}" Width="180" />
                 <DataGridComboBoxColumn Header="Base" SelectedItemBinding="{Binding BasePriority, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                <DataGridComboBoxColumn Header="Active" SelectedItemBinding="{Binding ActivePriority, UpdateSourceTrigger=PropertyChanged}" Width="120" />
-                <DataGridCheckBoxColumn Header="Active Mode" Binding="{Binding ActiveModeEnabled, UpdateSourceTrigger=PropertyChanged}" Width="105" />
+                <DataGridComboBoxColumn Header="Active" SelectedItemBinding="{Binding ActivePriorityOption, UpdateSourceTrigger=PropertyChanged}" Width="150" />
+                <DataGridTextColumn Header="Core Reserve" Binding="{Binding CoreReserve, UpdateSourceTrigger=LostFocus}" Width="105" />
                 <DataGridTextColumn Header="Notes" Binding="{Binding Notes, UpdateSourceTrigger=LostFocus}" Width="*" />
             </DataGrid.Columns>
         </DataGrid>
 
-        <TextBlock Grid.Row="5" Text="Log" FontWeight="SemiBold" Margin="0,12,0,6" />
+        <TextBlock Grid.Row="6" Text="Log" FontWeight="SemiBold" Margin="0,12,0,6" />
 
-        <ListBox x:Name="LogList" Grid.Row="6" />
+        <ListBox x:Name="LogList" Grid.Row="7" />
     </Grid>
 </Window>

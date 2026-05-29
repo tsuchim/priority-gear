@@ -8,6 +8,7 @@ public sealed class PriorityGearWorker(
     ILogger<PriorityGearWorker> logger,
     PrivilegeService privilegeService,
     Win32PriorityApplier priorityApplier,
+    WindowsCoreTopologyProvider topologyProvider,
     MachineRuleStore machineRuleStore,
     MachineRuleMonitor machineRuleMonitor,
     ServiceProcessDiscovery serviceProcessDiscovery,
@@ -22,7 +23,7 @@ public sealed class PriorityGearWorker(
         logger.LogInformation("PriorityGear Service started. SeDebugPrivilege: {Status}", _privilege.Status);
         serviceLog.Info($"SeDebugPrivilege result: Attempted={_privilege.Attempted}; Succeeded={_privilege.Succeeded}; Status={_privilege.Status}; Win32Error={_privilege.Win32Error}; Message={_privilege.Message}");
 
-        ServiceCommandHandler handler = new(priorityApplier, machineRuleStore, machineRuleMonitor, serviceProcessDiscovery, () => _privilege);
+        ServiceCommandHandler handler = new(priorityApplier, topologyProvider, machineRuleStore, machineRuleMonitor, serviceProcessDiscovery, () => _privilege);
         StatusPipeServer statusPipeServer = new(handler, serviceLog);
         AdminPipeServer adminPipeServer = new(handler, serviceLog);
         serviceLog.Info("Status and admin pipe servers starting.");

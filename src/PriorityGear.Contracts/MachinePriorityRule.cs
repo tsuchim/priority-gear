@@ -28,6 +28,8 @@ public sealed class MachinePriorityRule
 
     public ProcessPriorityLevel? ActivePriority { get; set; }
 
+    public int CoreReserve { get; set; }
+
     public bool ApprovedByAdmin { get; set; }
 
     public string? CreatedBy { get; set; }

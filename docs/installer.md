@@ -1,13 +1,13 @@
 # PriorityGear Installer
 
-PriorityGear `v0.3.4` is the next formal GitHub release installer path. It follows the Windows desktop convention that installed applications are launched from the Start Menu.
+PriorityGear `v0.3.5` is the latest formal GitHub release installer path. It follows the Windows desktop convention that installed applications are launched from the Start Menu and includes the silent uninstall cleanup needed after package-manager validation found a `v0.3.4` lifecycle blocker.
 
 ## Artifact
 
 The primary release artifact is:
 
 ```text
-PriorityGear-v0.3.4-win-x64-installer.zip
+PriorityGear-v0.3.5-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI app, CLI, and System Mode service binaries.
@@ -17,7 +17,7 @@ The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI
 Double-click `PriorityGear.Setup.exe` and approve UAC. The installer:
 
 - requires elevation;
-- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.4`;
+- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.5`;
 - configures `PriorityGear.Service` as LocalSystem;
 - starts or restarts the service;
 - confirms the status pipe responds;
@@ -64,7 +64,7 @@ For silent uninstall:
 
 ## winget
 
-winget registration is not done in this release. A previous submission was closed because the installed application launch path and documentation were not ready. The package must not be treated as available until a future winget PR is validated, merged, and `winget search` can find it.
+winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. GitHub latest is `v0.3.5`, so winget is available but behind GitHub until a future winget update is validated and merged. Treat GitHub Release artifacts as the latest usable artifacts for `v0.3.5`.
 
 ## Boundaries
 

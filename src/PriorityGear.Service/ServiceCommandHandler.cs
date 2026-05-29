@@ -7,11 +7,22 @@ namespace PriorityGear.Service;
 
 public sealed class ServiceCommandHandler(
     Win32PriorityApplier priorityApplier,
+    WindowsCoreTopologyProvider topologyProvider,
     MachineRuleStore machineRuleStore,
     MachineRuleMonitor machineRuleMonitor,
     ServiceProcessDiscovery serviceProcessDiscovery,
     Func<PrivilegeEnableResult> privilegeProvider)
 {
+    public ServiceCommandHandler(
+        Win32PriorityApplier priorityApplier,
+        MachineRuleStore machineRuleStore,
+        MachineRuleMonitor machineRuleMonitor,
+        ServiceProcessDiscovery serviceProcessDiscovery,
+        Func<PrivilegeEnableResult> privilegeProvider)
+        : this(priorityApplier, new WindowsCoreTopologyProvider(), machineRuleStore, machineRuleMonitor, serviceProcessDiscovery, privilegeProvider)
+    {
+    }
+
     public ServiceResponse HandleStatus(ServiceRequest request)
     {
         return request.Kind switch
@@ -244,6 +255,7 @@ public sealed class ServiceCommandHandler(
         }
 
         ProcessPriorityLevel? priority = request.Priority;
+        MachinePriorityRule? approvedRule = null;
         if (requireApprovedRule)
         {
             if (!TryGetMatchingApprovedRule(request, out MachinePriorityRule? rule, out string ruleFailure))
@@ -251,6 +263,7 @@ public sealed class ServiceCommandHandler(
                 return new ServiceResponse { Succeeded = false, Message = ruleFailure };
             }
 
+            approvedRule = rule;
             priority ??= rule.BasePriority;
         }
 
@@ -260,6 +273,25 @@ public sealed class ServiceCommandHandler(
         }
 
         Win32PriorityResult result = priorityApplier.SetPriority(request.ProcessId.Value, priority.Value);
+        if (result.Succeeded && approvedRule?.CoreReserve > 0)
+        {
+            CoreReserveApplyResult affinity = ApplyCoreReserve(request.ProcessId.Value, approvedRule.CoreReserve);
+            if (!affinity.Succeeded)
+            {
+                return new ServiceResponse
+                {
+                    Succeeded = false,
+                    Message = affinity.Message,
+                    PriorityApply = new PriorityApplyDto
+                    {
+                        Succeeded = false,
+                        Status = affinity.ErrorCode ?? "CoreReserveFailed",
+                        Message = affinity.Message
+                    }
+                };
+            }
+        }
+
         return new ServiceResponse
         {
             Succeeded = result.Succeeded,
@@ -272,6 +304,35 @@ public sealed class ServiceCommandHandler(
                 Message = result.Message
             }
         };
+    }
+
+    private CoreReserveApplyResult ApplyCoreReserve(int processId, int reserveCount)
+    {
+        CoreReservePlan plan;
+        try
+        {
+            plan = CoreReservePlanner.Plan(topologyProvider.GetPhysicalCores(), reserveCount);
+        }
+        catch (Exception ex)
+        {
+            return CoreReserveApplyResult.Failure(reserveCount, ex.Message, "CoreTopologyUnavailable");
+        }
+
+        if (!plan.Succeeded || plan.AllowedLogicalProcessorMask is null)
+        {
+            return CoreReserveApplyResult.Failure(reserveCount, plan.Message, "CoreTopologyUnsupported");
+        }
+
+        try
+        {
+            using Process process = Process.GetProcessById(processId);
+            process.ProcessorAffinity = (nint)plan.AllowedLogicalProcessorMask.Value;
+            return CoreReserveApplyResult.Success(reserveCount, plan.Message);
+        }
+        catch (Exception ex)
+        {
+            return CoreReserveApplyResult.Failure(reserveCount, ex.Message, "AffinityApplyFailed");
+        }
     }
 
     private ServiceResponse ProbePriorityAccessResponse(ServiceRequest request)

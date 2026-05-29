@@ -41,14 +41,22 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.3.4 System Mode Installer Release
+## Usability and Monitoring
 
-`v0.3.4` は formal System Mode installer 用の次の GitHub release です。Windows の標準に合わせ、install 時に PriorityGear を Start Menu に登録します。
+開発ブランチでは、プロセス名の部分一致フィルタ、約 3 秒の手動 resource snapshot、CPU / GPU / Disk I/O の表示とソート/フィルタを追加しています。CPU は sampling interval 中の process CPU time 差分、Disk I/O は process I/O counter 差分から推定します。GPU は process ID に帰属できる Windows source を検証できる場合だけ表示し、unsupported / unavailable を 0 として扱いません。
+
+priority selector は対応済み priority を高い順に表示します。active priority は `Same as normal` が既定で、明示 override がない限り通常 priority を使います。
+
+`Core Reserve` は既定 `0` です。非 0 の場合、対象 process に affinity policy を適用し、指定数の physical core を未使用にします。Windows topology で P-core/E-core を区別できる場合は P-core を先に reserve します。topology、validation、affinity 適用に失敗した場合は明示的に失敗として扱い、成功したふりはしません。
+
+## v0.3.5 System Mode Installer Release
+
+`v0.3.5` は formal System Mode installer 用の最新 GitHub release です。`v0.3.4` の Start Menu installer work の後、package-manager validation で見つかった silent uninstall cleanup blocker を修正しています。
 
 公開 artifact は次です。
 
 ```text
-PriorityGear-v0.3.4-win-x64-installer.zip
+PriorityGear-v0.3.5-win-x64-installer.zip
 ```
 
 zip には `PriorityGear.Setup.exe` が含まれます。ダブルクリックして UAC を承認すると PriorityGear を install / update します。この installer は AS IS であり、署名を明示的に追加するまでは unsigned です。
@@ -56,7 +64,7 @@ zip には `PriorityGear.Setup.exe` が含まれます。ダブルクリック�
 同じ installer artifact をローカルで作成する場合:
 
 ```powershell
-.\scripts\package-release.ps1 -TagName "v0.3.4" -OutputDirectory ".\artifacts\release-test-v0.3.4"
+.\scripts\package-release.ps1 -TagName "v0.3.5" -OutputDirectory ".\artifacts\release-test-v0.3.5"
 ```
 
 installer は GUI app を配置し、`PriorityGear.Service` を `%ProgramFiles%\PriorityGear\versions` 以下の versioned directory から起動する LocalSystem Windows Service として構成します。`%ProgramData%\PriorityGear\rules.machine.json` と `%ProgramData%\PriorityGear\Logs` は保持します。
@@ -86,7 +94,9 @@ v0.2 の範囲は LocalSystem service の検証用 install/update、status/admin
 
 `v0.2.0-preview.1` は System Mode foundation の過去の public prerelease として残ります。
 
-Store 配布、winget 登録、署名、本番 MSI/MSIX packaging、GUI machine-rule editing、System Mode の active-window priority switching、任意の shared-host mutation、CPU affinity、I/O priority、EcoQoS、Realtime priority UI、driver、telemetry、network、updater は範囲外です。先行 winget submission は install 後の起動導線と documentation が不十分だったため closed しています。
+GitHub latest は `v0.3.5` です。winget には現在 `tsuchim.PriorityGear` version `0.3.4` が公開されています。winget は利用可能ですが GitHub release より 1 patch 遅れているため、最新 artifact が必要な場合は GitHub Release を使ってください。
+
+Store 配布、署名、本番 MSI/MSIX packaging、GUI machine-rule editing、System Mode の active-window priority switching、任意の shared-host mutation、I/O priority、EcoQoS、Realtime priority UI、driver、telemetry、network、updater は範囲外です。
 
 検証後の状態として、`PriorityGear.Service` は install/running のまま残る場合があります。一時的な `PriorityGear.TestTarget.Service` と temporary machine rules は削除され、`%ProgramData%\PriorityGear\Logs` は残ります。`%ProgramData%\PriorityGear\rules.machine.json` は保持または復元されます。古い version directory cleanup は best-effort です。
 

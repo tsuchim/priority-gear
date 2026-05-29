@@ -6,6 +6,7 @@ public sealed class MonitoringController
 {
     private readonly IProcessSource _processSource;
     private readonly IPriorityApplier _priorityApplier;
+    private readonly ICoreAffinityApplier _coreAffinityApplier;
     private readonly IForegroundProcessSource _foregroundProcessSource;
     private readonly PriorityRuleEngine _ruleEngine = new();
     private readonly MonitoringOptions _options;
@@ -21,10 +22,12 @@ public sealed class MonitoringController
         IProcessSource processSource,
         IPriorityApplier priorityApplier,
         IForegroundProcessSource foregroundProcessSource,
-        MonitoringOptions? options = null)
+        MonitoringOptions? options = null,
+        ICoreAffinityApplier? coreAffinityApplier = null)
     {
         _processSource = processSource;
         _priorityApplier = priorityApplier;
+        _coreAffinityApplier = coreAffinityApplier ?? new NoOpCoreAffinityApplier();
         _foregroundProcessSource = foregroundProcessSource;
         _options = options ?? MonitoringOptions.Default;
     }
@@ -113,6 +116,12 @@ public sealed class MonitoringController
         foreach (PriorityDecision decision in decisions.Values)
         {
             ProcessSnapshot process = decision.Process;
+            if (decision.Rule.CoreReserve < 0)
+            {
+                LogThrottledFailure(now, process, decision, "CoreReserveInvalid", "Core Reserve must be a non-negative integer.");
+                continue;
+            }
+
             if (!process.Inspection.PriorityWriteLikelyPossible)
             {
                 LogThrottledFailure(now, process, decision, process.Inspection.Status.ToString(), process.Inspection.Message ?? process.Inspection.Status.ToString());
@@ -131,6 +140,18 @@ public sealed class MonitoringController
             if (result.Succeeded)
             {
                 Log("apply", $"{process.ExecutableName} ({process.ProcessId}) -> {decision.DesiredPriority}");
+                if (decision.Rule.CoreReserve > 0)
+                {
+                    CoreReserveApplyResult affinity = _coreAffinityApplier.ApplyCoreReserve(process.ProcessId, decision.Rule.CoreReserve);
+                    if (affinity.Succeeded)
+                    {
+                        Log("affinity", $"{process.ExecutableName} ({process.ProcessId}) core reserve {decision.Rule.CoreReserve}: {affinity.Message}");
+                    }
+                    else
+                    {
+                        LogThrottledFailure(now, process, decision, affinity.ErrorCode ?? "CoreReserveFailed", affinity.Message);
+                    }
+                }
             }
             else
             {
@@ -164,6 +185,7 @@ public sealed class MonitoringController
             _processes,
             new Dictionary<int, ManagedProcessState>(_states),
             decisions,
+            new Dictionary<int, ProcessResourceSnapshot>(),
             _running,
             now);
     }

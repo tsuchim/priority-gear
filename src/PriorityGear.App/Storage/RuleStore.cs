@@ -46,14 +46,60 @@ public sealed class RuleStore
 
         try
         {
-            using FileStream stream = File.OpenRead(_path);
-            List<PriorityRule>? rules = JsonSerializer.Deserialize<List<PriorityRule>>(stream, JsonOptions);
+            string json = File.ReadAllText(_path);
+            List<PriorityRule>? rules = JsonSerializer.Deserialize<List<PriorityRule>>(json, JsonOptions);
+            PreserveLegacyActivePriority(json, rules);
             return new RuleStoreLoadResult(true, rules ?? [], null, _path);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             return new RuleStoreLoadResult(false, [], ex.Message, _path);
         }
+    }
+
+    private static void PreserveLegacyActivePriority(string json, List<PriorityRule>? rules)
+    {
+        if (rules is null)
+        {
+            return;
+        }
+
+        using JsonDocument document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        int index = 0;
+        foreach (JsonElement element in document.RootElement.EnumerateArray())
+        {
+            if (index >= rules.Count)
+            {
+                break;
+            }
+
+            bool hasActivePriority = HasProperty(element, "activePriority");
+            bool hasActiveMode = HasProperty(element, "activeModeEnabled");
+            if (hasActivePriority && !hasActiveMode)
+            {
+                rules[index].ActiveModeEnabled = true;
+            }
+
+            index++;
+        }
+    }
+
+    private static bool HasProperty(JsonElement element, string name)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public RuleStoreSaveResult Save(IEnumerable<PriorityRule> rules)
