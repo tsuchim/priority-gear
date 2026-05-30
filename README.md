@@ -35,7 +35,7 @@ dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuratio
 
 ## v0.3.6 Release
 
-`v0.3.6` is the next GitHub installer release after `v0.3.5`.
+`v0.3.6` is the GitHub installer release after `v0.3.5`.
 
 It includes usability and monitoring updates:
 

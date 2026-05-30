@@ -64,7 +64,11 @@ For silent uninstall:
 
 ## winget
 
-winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. After `v0.3.6` is released, winget will be available but behind GitHub until a future winget update is validated and merged. Do not describe winget as unavailable, and do not assume winget has the latest GitHub release until `winget search --id tsuchim.PriorityGear --exact` reports the newer version.
+winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. After GitHub `v0.3.6`, winget is available but behind GitHub until a future winget update is validated and merged. Do not describe winget as unavailable, and do not assume winget has the latest GitHub release until `winget search --id tsuchim.PriorityGear --exact` reports the newer version.
+
+## Release Process Note
+
+Before pushing a `vX.Y.Z` tag, add `docs/release-drafts/vX.Y.Z.md`. `.github/workflows/release-preview.yml` requires that tag-specific release notes file in the publish step; if it is missing, the workflow can pass build, package, and artifact inspection, then fail at release publication.
 
 ## Boundaries
 
