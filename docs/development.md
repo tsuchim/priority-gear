@@ -47,7 +47,7 @@ Use the CLI diagnostic to inspect the same Windows topology and planner used by 
 dotnet run --project src/PriorityGear.Cli/PriorityGear.Cli.csproj --configuration Release -- core-topology
 ```
 
-The JSON output lists each physical core index, logical processor mask, raw Windows `EfficiencyClass`, processor group, whether PriorityGear sees heterogeneous efficiency data, and the allowed affinity masks for `CoreReserve = 0`, `1`, `2`, and an invalid value.
+The JSON output lists each physical core index, logical processor mask, raw Windows `EfficiencyClass`, processor group, whether PriorityGear sees heterogeneous efficiency data, and plans for `CoreReserve = 0`, `1`, `2`, and an invalid value. Each plan reports whether it succeeded, the allowed logical-processor mask, the reserved logical-processor mask, the reserved physical-core indexes, and a human-readable message.
 
 `CoreReserve = 0` means no affinity change. Nonzero values exclude that many physical cores from the target process affinity; those cores remain available to Windows and other processes. On heterogeneous systems, higher raw `EfficiencyClass` cores are excluded first. Multiple processor groups are rejected because the current affinity path uses a single process affinity mask.
 
@@ -56,16 +56,34 @@ The JSON output lists each physical core index, logical processor mask, raw Wind
 To reproduce a script that targets `vmmem*`, lowers priority, and leaves selected physical cores free:
 
 1. Start WSL so the WSL VM process is present.
-2. In PriorityGear, use the process-name filter to find the observed process name, commonly `vmmemWSL.exe` or another `vmmem*` process.
+2. In PriorityGear, use the process-name filter to find the observed process name. On the validated Windows 11 machine, the WSL workload process was `vmmemWSL.exe`; `vmmemCmZygote` was also present but was not the preferred rule target.
 3. Add a rule for that process.
 4. Set Base priority to `BelowNormal`.
 5. Leave Active priority as `Same as normal`.
 6. Set `Core Reserve` to the number of physical cores to exclude from WSL, such as `1` or `2`.
 7. Start monitoring.
 
-If User Mode can mutate the process, the rule applies directly. If Windows denies priority or affinity mutation, install/use System Mode so the administrator-approved service can apply a matching machine rule. PriorityGear must show unsupported, denied, or failed states explicitly; it must not report success when topology or affinity application fails.
+If User Mode can mutate the process, the rule applies directly. On the validated machine, non-elevated PowerShell could observe `vmmemWSL` but could not read its priority or affinity, so System Mode is the expected path for this workload. If Windows denies priority or affinity mutation, install/use System Mode so the administrator-approved service can apply a matching machine rule. PriorityGear must show unsupported, denied, or failed states explicitly; it must not report success when topology or affinity application fails.
 
 Verify the result with Task Manager, PowerShell process priority/affinity inspection, and `PriorityGear.Cli core-topology`. Compare masks with the old script by intent: PriorityGear uses Windows physical-core topology and reserves higher `EfficiencyClass` cores first, not WSL `lscpu` numbering.
+
+For System Mode, run the CLI from an elevated administrator terminal because machine-rule mutations use the administrator-only pipe:
+
+```powershell
+& "C:\Program Files\PriorityGear\versions\<version>\PriorityGear.Cli.exe" machine-rules add `
+  --name "WSL vmmem" `
+  --exe vmmemWSL.exe `
+  --priority BelowNormal `
+  --core-reserve 2 `
+  --approve
+```
+
+The installed CLI diagnostic on the validated Intel hybrid machine reported 20 physical cores, heterogeneous efficiency data, `EfficiencyClass = 1` for physical cores `0` through `7`, and `EfficiencyClass = 0` for physical cores `8` through `19`. The expected plans were:
+
+- `CoreReserve = 1`: reserved mask `0x3`, allowed mask `0xFFFFFFC`, reserved core indexes `[0]`.
+- `CoreReserve = 2`: reserved mask `0xF`, allowed mask `0xFFFFFF0`, reserved core indexes `[0, 1]`.
+
+Removing a rule does not necessarily restore priority or affinity on an already-running process. For WSL validation cleanup, remove or disable the rule and run `wsl --shutdown`, or explicitly reset the process priority/affinity before continuing normal work.
 
 Known limitations:
 

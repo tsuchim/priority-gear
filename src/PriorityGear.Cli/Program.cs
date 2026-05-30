@@ -76,10 +76,9 @@ static async Task<ServiceResponse> SendAsync(string pipeName, ServiceRequest req
     JsonSerializerOptions wireOptions = new(JsonSerializerDefaults.Web);
     try
     {
-        TokenImpersonationLevel impersonationLevel = string.Equals(pipeName, ServiceContractConstants.AdminPipeName, StringComparison.Ordinal)
-            ? TokenImpersonationLevel.Impersonation
-            : TokenImpersonationLevel.Identification;
-        await using NamedPipeClientStream pipe = new(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous, impersonationLevel);
+        await using NamedPipeClientStream pipe = string.Equals(pipeName, ServiceContractConstants.AdminPipeName, StringComparison.Ordinal)
+            ? new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous, TokenImpersonationLevel.Impersonation)
+            : new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         await pipe.ConnectAsync(5000);
         await using StreamWriter writer = new(pipe, leaveOpen: true) { AutoFlush = true };
         using StreamReader reader = new(pipe, leaveOpen: true);
@@ -216,6 +215,8 @@ static object PlanDto(IReadOnlyList<PhysicalCoreInfo> cores, int reserveCount)
         coreReserve = reserveCount,
         plan.Succeeded,
         allowedLogicalProcessorMaskHex = plan.AllowedLogicalProcessorMask.HasValue ? FormatMask(plan.AllowedLogicalProcessorMask.Value) : null,
+        reservedLogicalProcessorMaskHex = plan.ReservedLogicalProcessorMask.HasValue ? FormatMask(plan.ReservedLogicalProcessorMask.Value) : null,
+        reservedCoreIndexes = plan.ReservedCoreIndexes,
         plan.Message
     };
 }

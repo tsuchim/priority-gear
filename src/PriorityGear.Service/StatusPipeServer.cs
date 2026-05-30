@@ -1,4 +1,6 @@
 using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using PriorityGear.Contracts;
 
 namespace PriorityGear.Service;
@@ -12,12 +14,16 @@ public sealed class StatusPipeServer(ServiceCommandHandler handler, ServiceFileL
         {
             try
             {
-                using NamedPipeServerStream pipe = new(
+                PipeSecurity security = CreateStatusPipeSecurity();
+                using NamedPipeServerStream pipe = NamedPipeServerStreamAcl.Create(
                     ServiceContractConstants.StatusPipeName,
                     PipeDirection.InOut,
                     1,
                     PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous);
+                    PipeOptions.Asynchronous,
+                    0,
+                    0,
+                    security);
 
                 log.Info("Status pipe waiting.");
                 await pipe.WaitForConnectionAsync(cancellationToken);
@@ -68,5 +74,18 @@ public sealed class StatusPipeServer(ServiceCommandHandler handler, ServiceFileL
         {
             log.Error(ex, "Status pipe failed to write structured exception response.");
         }
+    }
+
+    private static PipeSecurity CreateStatusPipeSecurity()
+    {
+        PipeSecurity security = new();
+        SecurityIdentifier authenticatedUsers = new(WellKnownSidType.AuthenticatedUserSid, null);
+        SecurityIdentifier administrators = new(WellKnownSidType.BuiltinAdministratorsSid, null);
+        SecurityIdentifier localSystem = new(WellKnownSidType.LocalSystemSid, null);
+
+        security.AddAccessRule(new PipeAccessRule(authenticatedUsers, PipeAccessRights.ReadWrite, AccessControlType.Allow));
+        security.AddAccessRule(new PipeAccessRule(administrators, PipeAccessRights.ReadWrite, AccessControlType.Allow));
+        security.AddAccessRule(new PipeAccessRule(localSystem, PipeAccessRights.FullControl, AccessControlType.Allow));
+        return security;
     }
 }

@@ -28,6 +28,8 @@ public sealed class CoreReservePlannerTests
 
         Assert.True(plan.Succeeded);
         Assert.Equal((ulong)0b001111, plan.AllowedLogicalProcessorMask);
+        Assert.Equal((ulong)0b110000, plan.ReservedLogicalProcessorMask);
+        Assert.Equal([2], plan.ReservedCoreIndexes);
         Assert.Contains("P-cores", plan.Message);
     }
 
@@ -44,6 +46,8 @@ public sealed class CoreReservePlannerTests
 
         Assert.True(plan.Succeeded);
         Assert.Equal((ulong)0b000011, plan.AllowedLogicalProcessorMask);
+        Assert.Equal((ulong)0b111100, plan.ReservedLogicalProcessorMask);
+        Assert.Equal([2, 1], plan.ReservedCoreIndexes);
     }
 
     [Fact]
@@ -57,6 +61,8 @@ public sealed class CoreReservePlannerTests
             reserveCount: 1);
 
         Assert.True(plan.Succeeded);
+        Assert.Equal((ulong)0b0011, plan.ReservedLogicalProcessorMask);
+        Assert.Equal([0], plan.ReservedCoreIndexes);
         Assert.DoesNotContain("preferring P-cores", plan.Message);
     }
 

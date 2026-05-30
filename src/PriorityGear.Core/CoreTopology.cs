@@ -2,11 +2,17 @@ namespace PriorityGear.Core;
 
 public sealed record PhysicalCoreInfo(int CoreIndex, ulong LogicalProcessorMask, byte EfficiencyClass, ushort ProcessorGroup = 0);
 
-public sealed record CoreReservePlan(bool Succeeded, ulong? AllowedLogicalProcessorMask, string Message)
+public sealed record CoreReservePlan(
+    bool Succeeded,
+    ulong? AllowedLogicalProcessorMask,
+    ulong? ReservedLogicalProcessorMask,
+    IReadOnlyList<int> ReservedCoreIndexes,
+    string Message)
 {
-    public static CoreReservePlan Success(ulong mask, string message) => new(true, mask, message);
+    public static CoreReservePlan Success(ulong allowedMask, ulong reservedMask, IReadOnlyList<int> reservedCoreIndexes, string message) =>
+        new(true, allowedMask, reservedMask, reservedCoreIndexes, message);
 
-    public static CoreReservePlan Failure(string message) => new(false, null, message);
+    public static CoreReservePlan Failure(string message) => new(false, null, null, [], message);
 }
 
 public static class CoreReservePlanner
@@ -20,7 +26,7 @@ public static class CoreReservePlanner
 
         if (reserveCount == 0)
         {
-            return CoreReservePlan.Success(0, "Core Reserve is disabled.");
+            return CoreReservePlan.Success(0, 0, [], "Core Reserve is disabled.");
         }
 
         if (cores.Count == 0)
@@ -72,6 +78,10 @@ public static class CoreReservePlanner
             ? $"Reserved {reserveCount} physical core(s), preferring P-cores."
             : $"Reserved {reserveCount} physical core(s); P-core/E-core distinction is unavailable.";
 
-        return CoreReservePlan.Success(allowedMask, message);
+        return CoreReservePlan.Success(
+            allowedMask,
+            reservedMask,
+            reserved.Select(static core => core.CoreIndex).ToList(),
+            message);
     }
 }
