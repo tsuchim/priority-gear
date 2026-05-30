@@ -1,13 +1,13 @@
 # PriorityGear Installer
 
-PriorityGear `v0.3.5` is the latest formal GitHub release installer path. It follows the Windows desktop convention that installed applications are launched from the Start Menu and includes the silent uninstall cleanup needed after package-manager validation found a `v0.3.4` lifecycle blocker.
+PriorityGear `v0.3.6` is the prepared formal GitHub release installer candidate. It follows the Windows desktop convention that installed applications are launched from the Start Menu and includes the post-`v0.3.5` usability and monitoring update, Core Reserve, and installed System Mode validation for the WSL/vmmem use case.
 
 ## Artifact
 
 The primary release artifact is:
 
 ```text
-PriorityGear-v0.3.5-win-x64-installer.zip
+PriorityGear-v0.3.6-win-x64-installer.zip
 ```
 
 The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI app, CLI, and System Mode service binaries.
@@ -17,7 +17,7 @@ The zip contains `PriorityGear.Setup.exe` and a `payload` directory with the GUI
 Double-click `PriorityGear.Setup.exe` and approve UAC. The installer:
 
 - requires elevation;
-- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.5`;
+- installs files under `%ProgramFiles%\PriorityGear\versions\v0.3.6`;
 - configures `PriorityGear.Service` as LocalSystem;
 - starts or restarts the service;
 - confirms the status pipe responds;
@@ -64,7 +64,7 @@ For silent uninstall:
 
 ## winget
 
-winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. GitHub latest is `v0.3.5`, so winget is available but behind GitHub until a future winget update is validated and merged. Treat GitHub Release artifacts as the latest usable artifacts for `v0.3.5`.
+winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. After `v0.3.6` is released, winget will be available but behind GitHub until a future winget update is validated and merged. Do not describe winget as unavailable, and do not assume winget has the latest GitHub release until `winget search --id tsuchim.PriorityGear --exact` reports the newer version.
 
 ## Boundaries
 
