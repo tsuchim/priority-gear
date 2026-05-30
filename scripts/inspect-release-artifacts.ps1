@@ -43,11 +43,17 @@ try {
     $entries = @($zip.Entries | ForEach-Object { $_.FullName })
     $required = @(
         "PriorityGear.Setup.exe",
+        "hostfxr.dll",
+        "hostpolicy.dll",
+        "coreclr.dll",
         "setup-version.txt",
         "winget-install.json",
         "payload/PriorityGear.Service.exe",
         "payload/PriorityGear.Cli.exe",
-        "payload/PriorityGear.App.exe"
+        "payload/PriorityGear.App.exe",
+        "payload/hostfxr.dll",
+        "payload/hostpolicy.dll",
+        "payload/coreclr.dll"
     )
 
     foreach ($entry in $required) {
@@ -87,9 +93,20 @@ try {
     }
 
     if ($wingetMetadata -notmatch '"nestedInstallerFile"\s*:\s*"PriorityGear\.Setup\.exe"' -or
+        $wingetMetadata -notmatch '"installerType"\s*:\s*"zip"' -or
+        $wingetMetadata -notmatch '"nestedInstallerType"\s*:\s*"exe"' -or
         $wingetMetadata -notmatch '"silentInstall"\s*:\s*"--install --silent"' -or
         $wingetMetadata -notmatch '"silentUninstall"\s*:\s*"--uninstall --silent"') {
-        throw "winget-install.json must declare PriorityGear.Setup.exe and silent install/uninstall switches."
+        throw "winget-install.json must declare zip + nested exe packaging, PriorityGear.Setup.exe, and silent install/uninstall switches."
+    }
+
+    $staleVersionEntries = $entries | Where-Object {
+        $_ -match 'v[0-9]+\.[0-9]+\.[0-9]+' -and $_ -notmatch [Regex]::Escape($TagName)
+    }
+
+    if ($staleVersionEntries) {
+        $staleList = ($staleVersionEntries | Select-Object -First 20) -join [Environment]::NewLine
+        throw "Zip contains entries that refer to a different semantic version:$([Environment]::NewLine)$staleList"
     }
 
     $forbidden = $entries | Where-Object {

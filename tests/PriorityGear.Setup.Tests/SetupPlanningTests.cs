@@ -112,8 +112,48 @@ public sealed class SetupPlanningTests
         Assert.Contains("win-x64-installer.zip", inspector);
         Assert.Contains("setup-version.txt", inspector);
         Assert.Contains("winget-install.json", inspector);
+        Assert.Contains("hostfxr.dll", inspector);
+        Assert.Contains("hostpolicy.dll", inspector);
+        Assert.Contains("coreclr.dll", inspector);
+        Assert.Contains("\"installerType\"\\s*:\\s*\"zip\"", inspector);
+        Assert.Contains("\"nestedInstallerType\"\\s*:\\s*\"exe\"", inspector);
         Assert.Contains("--install --silent", inspector);
         Assert.Contains("--uninstall --silent", inspector);
+    }
+
+    [Fact]
+    public void ReleasePackagePublishesSelfContainedBinaries()
+    {
+        string repoRoot = FindRepoRoot();
+        string packageScript = File.ReadAllText(Path.Combine(repoRoot, "scripts", "package-release.ps1"));
+
+        Assert.Equal(4, CountOccurrences(packageScript, "--self-contained true"));
+        Assert.DoesNotContain("--self-contained false", packageScript);
+        Assert.Contains("\"PriorityGear.Setup.exe\"", packageScript);
+        Assert.Contains("\"payload\\PriorityGear.Service.exe\"", packageScript);
+        Assert.Contains("\"payload\\PriorityGear.Cli.exe\"", packageScript);
+        Assert.Contains("\"payload\\PriorityGear.App.exe\"", packageScript);
+        Assert.Contains("\"hostfxr.dll\"", packageScript);
+        Assert.Contains("\"payload\\hostfxr.dll\"", packageScript);
+    }
+
+    [Fact]
+    public void WingetInstallMetadataContractRemainsStable()
+    {
+        string repoRoot = FindRepoRoot();
+        string packageScript = File.ReadAllText(Path.Combine(repoRoot, "scripts", "package-release.ps1"));
+        string inspector = File.ReadAllText(Path.Combine(repoRoot, "scripts", "inspect-release-artifacts.ps1"));
+
+        Assert.Contains("\"installerType\": \"zip\"", packageScript);
+        Assert.Contains("\"nestedInstallerType\": \"exe\"", packageScript);
+        Assert.Contains("\"nestedInstallerFile\": \"PriorityGear.Setup.exe\"", packageScript);
+        Assert.Contains("\"silentInstall\": \"--install --silent\"", packageScript);
+        Assert.Contains("\"silentUninstall\": \"--uninstall --silent\"", packageScript);
+        Assert.Contains("\"installerType\"\\s*:\\s*\"zip\"", inspector);
+        Assert.Contains("\"nestedInstallerType\"\\s*:\\s*\"exe\"", inspector);
+        Assert.Contains("\"nestedInstallerFile\"\\s*:\\s*\"PriorityGear\\.Setup\\.exe\"", inspector);
+        Assert.Contains("\"silentInstall\"\\s*:\\s*\"--install --silent\"", inspector);
+        Assert.Contains("\"silentUninstall\"\\s*:\\s*\"--uninstall --silent\"", inspector);
     }
 
     [Fact]
@@ -182,5 +222,18 @@ public sealed class SetupPlanningTests
         }
 
         throw new DirectoryNotFoundException("Could not find repository root.");
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 }

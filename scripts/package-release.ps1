@@ -26,28 +26,28 @@ Write-Host "Publishing installer..."
 dotnet publish "src\PriorityGear.Setup\PriorityGear.Setup.csproj" `
     --configuration Release `
     --runtime win-x64 `
-    --self-contained false `
+    --self-contained true `
     --output $setupPublish
 
 Write-Host "Publishing service payload..."
 dotnet publish "src\PriorityGear.Service\PriorityGear.Service.csproj" `
     --configuration Release `
     --runtime win-x64 `
-    --self-contained false `
+    --self-contained true `
     --output $payloadPublish
 
 Write-Host "Publishing CLI payload..."
 dotnet publish "src\PriorityGear.Cli\PriorityGear.Cli.csproj" `
     --configuration Release `
     --runtime win-x64 `
-    --self-contained false `
+    --self-contained true `
     --output $payloadPublish
 
 Write-Host "Publishing app payload..."
 dotnet publish "src\PriorityGear.App\PriorityGear.App.csproj" `
     --configuration Release `
     --runtime win-x64 `
-    --self-contained false `
+    --self-contained true `
     --output $payloadPublish
 
 Copy-Item -Path (Join-Path $setupPublish "*") -Destination $stagingRoot -Recurse -Force
@@ -66,11 +66,17 @@ Copy-Item -LiteralPath $payloadPublish -Destination (Join-Path $stagingRoot "pay
 
 $required = @(
     "PriorityGear.Setup.exe",
+    "hostfxr.dll",
+    "hostpolicy.dll",
+    "coreclr.dll",
     "setup-version.txt",
     "winget-install.json",
     "payload\PriorityGear.Service.exe",
     "payload\PriorityGear.Cli.exe",
-    "payload\PriorityGear.App.exe"
+    "payload\PriorityGear.App.exe",
+    "payload\hostfxr.dll",
+    "payload\hostpolicy.dll",
+    "payload\coreclr.dll"
 )
 
 foreach ($file in $required) {
