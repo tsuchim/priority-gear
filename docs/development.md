@@ -39,6 +39,40 @@ dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuratio
 - New rules default active priority to `Same as normal`; existing rules with explicit active overrides keep that behavior.
 - `Core Reserve` defaults to `0`. Nonzero values require valid Windows physical-core topology and affinity application. Invalid reserve counts or unsupported topology must be reported as failures, not treated as success. Windows `PROCESSOR_RELATIONSHIP.EfficiencyClass` is kept as a raw numeric value: all-zero means homogeneous or unavailable distinction; on heterogeneous systems, higher values are treated as higher-performance cores and reserved first.
 
+## Core Reserve Diagnostics
+
+Use the CLI diagnostic to inspect the same Windows topology and planner used by the app and service:
+
+```powershell
+dotnet run --project src/PriorityGear.Cli/PriorityGear.Cli.csproj --configuration Release -- core-topology
+```
+
+The JSON output lists each physical core index, logical processor mask, raw Windows `EfficiencyClass`, processor group, whether PriorityGear sees heterogeneous efficiency data, and the allowed affinity masks for `CoreReserve = 0`, `1`, `2`, and an invalid value.
+
+`CoreReserve = 0` means no affinity change. Nonzero values exclude that many physical cores from the target process affinity; those cores remain available to Windows and other processes. On heterogeneous systems, higher raw `EfficiencyClass` cores are excluded first. Multiple processor groups are rejected because the current affinity path uses a single process affinity mask.
+
+## Replacing a WSL / vmmem Core-Reserve Script
+
+To reproduce a script that targets `vmmem*`, lowers priority, and leaves selected physical cores free:
+
+1. Start WSL so the WSL VM process is present.
+2. In PriorityGear, use the process-name filter to find the observed process name, commonly `vmmemWSL.exe` or another `vmmem*` process.
+3. Add a rule for that process.
+4. Set Base priority to `BelowNormal`.
+5. Leave Active priority as `Same as normal`.
+6. Set `Core Reserve` to the number of physical cores to exclude from WSL, such as `1` or `2`.
+7. Start monitoring.
+
+If User Mode can mutate the process, the rule applies directly. If Windows denies priority or affinity mutation, install/use System Mode so the administrator-approved service can apply a matching machine rule. PriorityGear must show unsupported, denied, or failed states explicitly; it must not report success when topology or affinity application fails.
+
+Verify the result with Task Manager, PowerShell process priority/affinity inspection, and `PriorityGear.Cli core-topology`. Compare masks with the old script by intent: PriorityGear uses Windows physical-core topology and reserves higher `EfficiencyClass` cores first, not WSL `lscpu` numbering.
+
+Known limitations:
+
+- Multiple processor groups are rejected.
+- Protected or elevated processes may require System Mode.
+- GPU attribution remains unsupported unless a verified PID-attributed source is added later.
+
 ## Portable Publish
 
 Framework-dependent:

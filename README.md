@@ -49,6 +49,8 @@ The development branch after `v0.3.5` includes usability and monitoring updates:
 
 Core Reserve requires Windows physical-core topology and process affinity support. When P-core/E-core distinction is exposed, PriorityGear reserves P-cores first. If the distinction is unavailable, the result is reported as generic physical-core reservation rather than claimed as P-core-aware. Applying affinity to protected or elevated processes follows the same User Mode/System Mode permission boundaries as priority changes.
 
+For WSL/vmmem workflows, create a rule for the observed `vmmem*` process, set Base priority to `BelowNormal`, leave Active priority as `Same as normal`, and set `Core Reserve` to the number of physical cores WSL should not use. The reserved cores remain available to Windows and other processes. Use `PriorityGear.Cli core-topology` to inspect physical cores, raw Windows `EfficiencyClass`, and planned affinity masks.
+
 ## v0.3.5 System Mode Installer Release
 
 `v0.3.5` is the latest GitHub release for the formal System Mode installer. It fixes silent uninstall cleanup for package-manager validation after the `v0.3.4` Start Menu installer work.

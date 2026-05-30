@@ -3,6 +3,7 @@ using System.Security.Principal;
 using System.Text.Json;
 using PriorityGear.Contracts;
 using PriorityGear.Core;
+using PriorityGear.Windows;
 
 if (args.Length >= 1 && string.Equals(args[0], "machine-rules", StringComparison.OrdinalIgnoreCase))
 {
@@ -12,6 +13,11 @@ if (args.Length >= 1 && string.Equals(args[0], "machine-rules", StringComparison
 if (args.Length >= 1 && string.Equals(args[0], "service-processes", StringComparison.OrdinalIgnoreCase))
 {
     return await HandleServiceProcessesAsync(args);
+}
+
+if (args.Length >= 1 && string.Equals(args[0], "core-topology", StringComparison.OrdinalIgnoreCase))
+{
+    return HandleCoreTopology(args);
 }
 
 if (args.Length < 2 || !string.Equals(args[0], "service", StringComparison.OrdinalIgnoreCase))
@@ -162,6 +168,61 @@ static void PrintUsage()
     Console.Error.WriteLine("  PriorityGear.Cli service-processes show --service-name <name>");
     Console.Error.WriteLine("  PriorityGear.Cli service-processes show-pid --pid <pid>");
     Console.Error.WriteLine("  PriorityGear.Cli service-processes probe --service-name <name>");
+    Console.Error.WriteLine("  PriorityGear.Cli core-topology [--invalid-reserve <count>]");
+}
+
+static int HandleCoreTopology(string[] args)
+{
+    int invalidReserve = ReadIntOptionOrDefault(args, "--invalid-reserve", -1);
+    try
+    {
+        IReadOnlyList<PhysicalCoreInfo> cores = new WindowsCoreTopologyProvider().GetPhysicalCores();
+        bool heterogeneous = cores.Any(static core => core.EfficiencyClass != 0);
+        var output = new
+        {
+            physicalCoreCount = cores.Count,
+            heterogeneousEfficiencyClass = heterogeneous,
+            cores = cores.Select(static core => new
+            {
+                core.CoreIndex,
+                logicalProcessorMaskHex = FormatMask(core.LogicalProcessorMask),
+                core.EfficiencyClass,
+                core.ProcessorGroup
+            }).ToList(),
+            plans = new[]
+            {
+                PlanDto(cores, 0),
+                PlanDto(cores, 1),
+                PlanDto(cores, 2),
+                PlanDto(cores, invalidReserve)
+            }
+        };
+
+        Console.WriteLine(JsonSerializer.Serialize(output, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true }));
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Core topology diagnostic failed: {ex.GetType().Name}: {ex.Message}");
+        return 1;
+    }
+}
+
+static object PlanDto(IReadOnlyList<PhysicalCoreInfo> cores, int reserveCount)
+{
+    CoreReservePlan plan = CoreReservePlanner.Plan(cores, reserveCount);
+    return new
+    {
+        coreReserve = reserveCount,
+        plan.Succeeded,
+        allowedLogicalProcessorMaskHex = plan.AllowedLogicalProcessorMask.HasValue ? FormatMask(plan.AllowedLogicalProcessorMask.Value) : null,
+        plan.Message
+    };
+}
+
+static string FormatMask(ulong mask)
+{
+    return $"0x{mask:X}";
 }
 
 static ProcessPriorityLevel? TryReadPriorityOption(string[] args, string name)
