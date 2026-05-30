@@ -27,6 +27,15 @@ The primary target architecture is x64.
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
+## Validation Safety
+
+- Never terminate or restart a process that the validator did not create specifically for the test.
+- Controllable target process does not mean disposable test process.
+- System infrastructure processes such as `vmmemWSL.exe`, Docker Desktop, database containers, and VS Code remote hosts must be treated as live user infrastructure.
+- For destructive validation, create a dedicated test process or test service and operate only on that.
+- Cleanup must prefer rule deletion or disablement and explicit state restoration, not process termination.
+- Any operation that may stop workloads must be reported as a blocker and must not be executed by default.
+
 ## Current UI Behavior
 
 - The process grid supports case-insensitive process-name filtering.
@@ -83,7 +92,9 @@ The installed CLI diagnostic on the validated Intel hybrid machine reported 20 p
 - `CoreReserve = 1`: reserved mask `0x3`, allowed mask `0xFFFFFFC`, reserved core indexes `[0]`.
 - `CoreReserve = 2`: reserved mask `0xF`, allowed mask `0xFFFFFF0`, reserved core indexes `[0, 1]`.
 
-Removing a rule does not necessarily restore priority or affinity on an already-running process. For WSL validation cleanup, remove or disable the rule and run `wsl --shutdown`, or explicitly reset the process priority/affinity before continuing normal work.
+Installed-build System Mode validation used `C:\Program Files\PriorityGear\versions\v0.3.6` with service binary `C:\Program Files\PriorityGear\versions\v0.3.6\PriorityGear.Service.exe`. Rule `4bb5151a-a3c0-44fc-ac2a-0a40517d0214` targeted `vmmemWSL.exe` with Base priority `BelowNormal`; `vmmemCmZygote` was observed but was not targeted. `CoreReserve = 1` applied priority `BelowNormal` and affinity `0xFFFFFFC`. Updating only `CoreReserve` to `2` reapplied the installed System Mode rule and changed affinity to `0xFFFFFF0`.
+
+Removing a rule does not necessarily restore priority or affinity on an already-running process. Normal validation cleanup is to delete or disable the PriorityGear test rule, then manually restore priority or affinity only when an explicit reset command is available and verified. If no verified reset is available, record that the already-running process may retain OS-level priority or affinity until the user naturally restarts that workload. Do not stop WSL, Docker, containers, databases, VS Code remote sessions, or other user workloads as routine cleanup. `wsl --shutdown` is a disruptive environment-wide manual reset that stops all WSL distributions and workloads under them; it must not be part of automated validation or routine cleanup instructions and requires explicit human approval outside the validation flow.
 
 Known limitations:
 
