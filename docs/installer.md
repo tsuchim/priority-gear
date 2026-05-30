@@ -1,6 +1,6 @@
 # PriorityGear Installer
 
-PriorityGear `v0.3.6` is the prepared formal GitHub release installer candidate. It follows the Windows desktop convention that installed applications are launched from the Start Menu and includes the post-`v0.3.5` usability and monitoring update, Core Reserve, and installed System Mode validation for the WSL/vmmem use case.
+PriorityGear `v0.3.6` is the formal GitHub release installer. It follows the Windows desktop convention that installed applications are launched from the Start Menu and includes the post-`v0.3.5` usability and monitoring update, Core Reserve, and installed System Mode validation for the WSL/vmmem use case.
 
 ## Artifact
 

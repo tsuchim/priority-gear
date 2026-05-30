@@ -33,9 +33,9 @@ dotnet test PriorityGear.slnx --configuration Release --no-build
 dotnet run --project src/PriorityGear.App/PriorityGear.App.csproj --configuration Release
 ```
 
-## v0.3.6 Release Candidate
+## v0.3.6 Release
 
-`v0.3.6` is the next GitHub installer release candidate after `v0.3.5`. After the release is published, GitHub latest should be `v0.3.6`.
+`v0.3.6` is the next GitHub installer release after `v0.3.5`.
 
 It includes usability and monitoring updates:
 
@@ -55,11 +55,11 @@ For WSL/vmmem workflows, create a rule for the observed WSL workload process. On
 
 If User Mode cannot read or mutate `vmmemWSL.exe` priority/affinity, use System Mode and create an administrator-approved machine rule. Removing a PriorityGear rule does not necessarily restore an already-running process priority or affinity. Normal cleanup is to disable or delete the PriorityGear rule and explicitly restore priority or affinity only when a verified reset path is available. Do not stop WSL, Docker, containers, databases, remote sessions, or other user workloads as routine cleanup.
 
-## v0.3.6 System Mode Installer Release Candidate
+## v0.3.6 System Mode Installer Release
 
-`v0.3.6` is the prepared release candidate for the formal System Mode installer. It includes the post-`v0.3.5` usability and monitoring update, Core Reserve, the `core-topology` CLI diagnostic, and installed System Mode validation for the WSL/vmmem use case.
+`v0.3.6` is the formal System Mode installer release. It includes the post-`v0.3.5` usability and monitoring update, Core Reserve, the `core-topology` CLI diagnostic, and installed System Mode validation for the WSL/vmmem use case.
 
-The expected GitHub release artifact is:
+The GitHub release artifact is:
 
 ```text
 PriorityGear-v0.3.6-win-x64-installer.zip
@@ -106,9 +106,9 @@ Post-verification state: `PriorityGear.Service` may remain installed/running, te
 
 ## Artifacts
 
-### v0.3.6 GitHub Installer Candidate
+### v0.3.6 GitHub Installer
 
-The expected `v0.3.6` GitHub release artifact is:
+The `v0.3.6` GitHub release artifact is:
 
 ```text
 PriorityGear-v0.3.6-win-x64-installer.zip
@@ -120,7 +120,7 @@ The installer supports `--install --silent` and `--uninstall --silent`.
 
 ### winget
 
-winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. At release-candidate preparation time, GitHub latest is still `v0.3.5`; after `v0.3.6` is released, winget will remain behind until a separate winget update is prepared, locally validated, submitted, and merged. Do not describe winget as unavailable, and do not assume winget has the latest GitHub release until `winget search --id tsuchim.PriorityGear --exact` reports the newer version.
+winget currently publishes `tsuchim.PriorityGear` version `0.3.4`. After GitHub `v0.3.6`, winget remains behind until a separate winget update is prepared, locally validated, submitted, and merged. Do not describe winget as unavailable, and do not assume winget has the latest GitHub release until `winget search --id tsuchim.PriorityGear --exact` reports the newer version.
 
 ### v0.1 User Mode Portable Publish
 
